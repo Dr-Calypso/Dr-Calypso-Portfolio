@@ -1,1 +1,3 @@
-index.html
+portfolio.html
+portfolio.css
+portfolio.js
