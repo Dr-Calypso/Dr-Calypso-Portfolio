@@ -338,48 +338,47 @@
     </div>
 
     <script src="portfolio.js"></script>
-    <!-- Google Drive API Auth -->
+   <!-- Google Drive API Auth -->
 <script>
 const CLIENT_ID = '230626308317-ts08shmn77745hq81ghu5q7e2s2i0gf9.apps.googleusercontent.com'; // Replace with your real client ID
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
 function handleClientLoad() {
-  console.log("Google API: handleClientLoad called");
-  gapi.load('client:auth2', initClient);
+    gapi.load('client:auth2', initClient);
 }
-
 function initClient() {
-  gapi.client.init({
-    clientId: CLIENT_ID,
-    scope: SCOPES
-  }).then(() => {
-    gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
-    updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
-  });
+    gapi.client.init({
+        clientId: CLIENT_ID,
+        scope: SCOPES
+    }).then(() => {
+        gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+        updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
+    });
 }
 
 function updateSigninStatus(isSignedIn) {
-  if (isSignedIn) {
-    document.getElementById('signin-button').style.display = 'none';
-    // You can now call your Drive API functions here
-    // Example: listFiles();
-  } else {
-    document.getElementById('signin-button').style.display = 'block';
-  }
+    if (isSignedIn) {
+        document.getElementById('authorize_button').style.display = 'none';
+        // You can now call your Drive API functions here
+        // Example: listFiles();
+    } else {
+        document.getElementById('authorize_button').style.display = 'block';
+    }
 }
 
 function handleSignInClick() {
-  gapi.auth2.getAuthInstance().signIn();
+    gapi.auth2.getAuthInstance().signIn();
 }
 
 function handleSignOutClick() {
-  gapi.auth2.getAuthInstance().signOut();
+    gapi.auth2.getAuthInstance().signOut();
 }
 </script>
-<button id="signin-button" onclick="handleSignInClick()" style="display:none;position:fixed;top:10px;right:10px;z-index:9999;">Sign in with Google</button>
+<button id="authorize_button" onclick="handleSignInClick()" style="display:block;position:fixed;top:10px;right:10px;z-index:9999;">Sign in with Google</button>
 <script>handleClientLoad();</script>
 </body>
 </html>
+
 
 
 
