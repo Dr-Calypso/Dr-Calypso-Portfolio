@@ -8,6 +8,9 @@
     <link rel="stylesheet" href="portfolio.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://apis.google.com/js/api.js"></script>
+    <script>
+  console.log("Google API script tag loaded!");
+</script>
 </head>
 <body>
     <!-- Header -->
@@ -341,6 +344,7 @@ const CLIENT_ID = '230626308317-ts08shmn77745hq81ghu5q7e2s2i0gf9.apps.googleuser
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
 function handleClientLoad() {
+  console.log("Google API: handleClientLoad called");
   gapi.load('client:auth2', initClient);
 }
 
@@ -376,6 +380,7 @@ function handleSignOutClick() {
 <script>handleClientLoad();</script>
 </body>
 </html>
+
 
 
 
