@@ -69,7 +69,6 @@
                                 <div class="avatar">
   <img src=" https://github.com/Dr-Calypso/Dr-Calypso.github.io/blob/main/profile.jpg?raw=true " alt="Profile Picture" class="avatar-image">
 </div>
-
                                 <button id="change-photo" class="btn btn-outline btn-sm hidden">
                                     <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                                         <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
@@ -343,6 +342,8 @@
 <div id="auth-status" style="position:fixed;top:10px;right:180px;z-index:9999;background:#fff;padding:6px;border:1px solid #ccc;border-radius:6px;display:none;font-size:13px;"></div>
 <button id="authorize_button" style="display:block;position:fixed;top:10px;right:10px;z-index:9999;">Sign in with Google</button>
 <button id="signout_button" style="display:none;position:fixed;top:40px;right:10px;z-index:9999;">Sign out</button>
+<button id="save-drive" onclick="app.saveToDrive()" style="display:none;position:fixed;top:70px;right:10px;z-index:9999;">Save to Drive</button>
+<button id="load-drive" onclick="app.loadFromDrive()" style="display:none;position:fixed;top:100px;right:10px;z-index:9999;">Load from Drive</button>
 <script>
 // Google Identity Services (GIS) + gapi.client integration
 const CLIENT_ID = '230626308317-ts08shmn77745hq81ghu5q7e2s2i0gf9.apps.googleusercontent.com';
@@ -443,4 +444,3 @@ window.addEventListener('load', () => {
 </script>
 </body>
 </html>
-
