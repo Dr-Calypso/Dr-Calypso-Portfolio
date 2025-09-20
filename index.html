@@ -430,9 +430,10 @@ function updateAuthUIStateGIS(signedIn) {
 
 // Initialize when GIS script is ready
 window.addEventListener('load', () => {
-    // Wait for google.accounts to be available
+    console.log('window.load: waiting for GIS and gapi');
     const check = setInterval(()=>{
-        if (window.google && google.accounts && gapi && gapi.client) {
+        if (window.google && google.accounts && window.gapi) {
+            console.log('GIS and gapi detected, initializing');
             clearInterval(check);
             initializeGisAndGapi();
         }
