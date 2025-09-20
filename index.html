@@ -357,17 +357,28 @@ function initClient() {
 }
 
 function updateSigninStatus(isSignedIn) {
+    console.log('updateSigninStatus called. isSignedIn:', isSignedIn);
     if (isSignedIn) {
         document.getElementById('authorize_button').style.display = 'none';
         // You can now call your Drive API functions here
         // Example: listFiles();
+        const user = gapi.auth2.getAuthInstance().currentUser.get();
+        console.log('Signed in user:', user.getBasicProfile() ? user.getBasicProfile().getEmail() : user);
     } else {
         document.getElementById('authorize_button').style.display = 'block';
     }
 }
 
 function handleSignInClick() {
-    gapi.auth2.getAuthInstance().signIn();
+    console.log('Sign-in button clicked');
+    gapi.auth2.getAuthInstance().signIn().then(
+        function() {
+            console.log('Sign-in successful');
+        },
+        function(error) {
+            console.error('Sign-in error:', error);
+        }
+    );
 }
 
 function handleSignOutClick() {
@@ -378,6 +389,7 @@ function handleSignOutClick() {
 <script>handleClientLoad();</script>
 </body>
 </html>
+
 
 
 
