@@ -419,14 +419,22 @@ function updateAuthUIStateGIS(signedIn) {
     const statusDiv = document.getElementById('auth-status');
     const authBtn = document.getElementById('authorize_button');
     const signOutBtn = document.getElementById('signout_button');
+    const saveBtn = document.getElementById('save-drive');
+    const loadBtn = document.getElementById('load-drive');
     if (signedIn) {
         if (statusDiv) { statusDiv.innerText = 'Signed in (Drive access granted)'; statusDiv.style.display = 'block'; }
         if (authBtn) { authBtn.style.display = 'none'; }
         if (signOutBtn) { signOutBtn.style.display = 'inline-block'; }
+        if (saveBtn) { saveBtn.style.setProperty('display','inline-block','important'); }
+        if (loadBtn) { loadBtn.style.setProperty('display','inline-block','important'); }
+        console.log('Auth UI updated: signedIn true - save/load buttons shown (forced)');
     } else {
         if (statusDiv) { statusDiv.style.display = 'none'; }
         if (authBtn) { authBtn.style.display = 'block'; }
         if (signOutBtn) { signOutBtn.style.display = 'none'; }
+        if (saveBtn) { saveBtn.style.setProperty('display','none','important'); }
+        if (loadBtn) { loadBtn.style.setProperty('display','none','important'); }
+        console.log('Auth UI updated: signedIn false - save/load buttons hidden (forced)');
     }
 }
 
