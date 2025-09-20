@@ -595,6 +595,10 @@ class PortfolioApp {
 
 // Initialize the application
 const app = new PortfolioApp();
+// Expose the instance to the global scope so inline handlers and other
+// scripts can reliably reference it as `app`. Top-level `const` does not
+// always create a `window` property in all environments, so set it here.
+window.app = app;
 
 // -----------------------------------------------------------------------------
 // GitHub / Repository JSON Auto-Loader
@@ -622,12 +626,14 @@ PortfolioApp.prototype.loadFromRepoIfPresent = async function() {
       return false;
     }
     // Apply data exactly as stored in the JSON file
-    this.achievements = Array.isArray(data.achievements) ? data.achievements : [];
-    this.reflections = Array.isArray(data.reflections) ? data.reflections : [];
+    // Use a safe reference to the instance in case `this` is not bound
+    const inst = (this && typeof this.renderAchievements === 'function') ? this : (window.app || this);
+    inst.achievements = Array.isArray(data.achievements) ? data.achievements : [];
+    inst.reflections = Array.isArray(data.reflections) ? data.reflections : [];
     // Re-render UI now that data is replaced
-    this.renderAchievements();
-    this.renderReflections();
-    this.updateLinkedAchievements();
+    if (typeof inst.renderAchievements === 'function') inst.renderAchievements();
+    if (typeof inst.renderReflections === 'function') inst.renderReflections();
+    if (typeof inst.updateLinkedAchievements === 'function') inst.updateLinkedAchievements();
     console.log('Loaded portfolio data from repository JSON.');
     return true;
   } catch (err) {
@@ -637,7 +643,7 @@ PortfolioApp.prototype.loadFromRepoIfPresent = async function() {
 }
 
 // Attempt to load repo JSON immediately on page open. If absent, keep sample data.
-(async function() {
+;(async function() {
   // Wait a tick for DOM to be ready (PortfolioApp constructor already ran)
   if (window.app && typeof window.app.loadFromRepoIfPresent === 'function') {
     const loaded = await window.app.loadFromRepoIfPresent();
@@ -700,12 +706,13 @@ PortfolioApp.prototype.saveToDrive = async function() {
       body: multipartRequestBody
     });
     console.log('Drive save response', resp);
-    this.showToast('Saved portfolio to Google Drive', 'success');
+    // Use safe instance reference
+    const inst = (this && typeof this.loadFromDrive === 'function') ? this : (window.app || this);
+    if (inst && typeof inst.showToast === 'function') inst.showToast('Saved portfolio to Google Drive', 'success');
     // After a successful save, reload the file from Drive so the in-memory
-    // representation exactly matches what was saved (useful if Drive altered
-    // metadata or if other clients updated concurrently).
+    // representation exactly matches what was saved.
     try {
-      await this.loadFromDrive();
+      if (inst && typeof inst.loadFromDrive === 'function') await inst.loadFromDrive();
     } catch (e) {
       console.warn('Saved to Drive but failed to reload immediately', e);
     }
@@ -723,12 +730,13 @@ PortfolioApp.prototype.loadFromDrive = async function() {
     const res = await gapi.client.request({ path: `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`, method: 'GET' });
     const data = res.result;
     if (data) {
-      this.achievements = data.achievements || [];
-      this.reflections = data.reflections || [];
-      this.renderAchievements();
-      this.renderReflections();
-      this.updateLinkedAchievements();
-      this.showToast('Loaded portfolio from Google Drive', 'success');
+      const inst = (this && typeof this.renderAchievements === 'function') ? this : (window.app || this);
+      inst.achievements = data.achievements || [];
+      inst.reflections = data.reflections || [];
+      if (typeof inst.renderAchievements === 'function') inst.renderAchievements();
+      if (typeof inst.renderReflections === 'function') inst.renderReflections();
+      if (typeof inst.updateLinkedAchievements === 'function') inst.updateLinkedAchievements();
+      if (typeof inst.showToast === 'function') inst.showToast('Loaded portfolio from Google Drive', 'success');
     } else {
       this.showToast('Failed to load portfolio data', 'error');
     }
