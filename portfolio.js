@@ -596,6 +596,57 @@ class PortfolioApp {
 // Initialize the application
 const app = new PortfolioApp();
 
+// -----------------------------------------------------------------------------
+// GitHub / Repository JSON Auto-Loader
+// -----------------------------------------------------------------------------
+// Behavior requested by user:
+// - When someone opens the site, the script should attempt to load a JSON file
+//   that you manually upload to the same repository/directory as `portfolio.html`.
+// - You will keep exactly one JSON file in the repo; this loader expects the
+//   file to be named `portfolio-data.json` and placed next to the HTML file.
+// - The loader will NOT modify, rename, or touch any files on Google Drive.
+// -----------------------------------------------------------------------------
+
+PortfolioApp.prototype.loadFromRepoIfPresent = async function() {
+  const repoFilename = './portfolio-data.json';
+  try {
+    const resp = await fetch(repoFilename, { cache: 'no-store' });
+    if (!resp.ok) {
+      // File not present or HTTP error - keep sample/local data
+      console.log(`Repo JSON not found at ${repoFilename} (status ${resp.status}). Using local data.`);
+      return false;
+    }
+    const data = await resp.json();
+    if (!data) {
+      console.warn('Repo JSON fetched but empty / invalid.');
+      return false;
+    }
+    // Apply data exactly as stored in the JSON file
+    this.achievements = Array.isArray(data.achievements) ? data.achievements : [];
+    this.reflections = Array.isArray(data.reflections) ? data.reflections : [];
+    // Re-render UI now that data is replaced
+    this.renderAchievements();
+    this.renderReflections();
+    this.updateLinkedAchievements();
+    console.log('Loaded portfolio data from repository JSON.');
+    return true;
+  } catch (err) {
+    console.error('Error loading repo JSON', err);
+    return false;
+  }
+}
+
+// Attempt to load repo JSON immediately on page open. If absent, keep sample data.
+(async function() {
+  // Wait a tick for DOM to be ready (PortfolioApp constructor already ran)
+  if (window.app && typeof window.app.loadFromRepoIfPresent === 'function') {
+    const loaded = await window.app.loadFromRepoIfPresent();
+    if (!loaded) {
+      console.log('Using built-in/sample data. To publish live data, upload `portfolio-data.json` to the same directory as your site.');
+    }
+  }
+})();
+
 // Drive persistence methods added to app prototype
 PortfolioApp.prototype.findDriveFile = async function(filename) {
   try {
@@ -650,6 +701,14 @@ PortfolioApp.prototype.saveToDrive = async function() {
     });
     console.log('Drive save response', resp);
     this.showToast('Saved portfolio to Google Drive', 'success');
+    // After a successful save, reload the file from Drive so the in-memory
+    // representation exactly matches what was saved (useful if Drive altered
+    // metadata or if other clients updated concurrently).
+    try {
+      await this.loadFromDrive();
+    } catch (e) {
+      console.warn('Saved to Drive but failed to reload immediately', e);
+    }
   } catch (e) {
     console.error('saveToDrive error', e);
     this.showToast('Failed to save to Drive', 'error');
@@ -678,3 +737,56 @@ PortfolioApp.prototype.loadFromDrive = async function() {
     this.showToast('Failed to load from Drive', 'error');
   }
 }
+
+// -----------------------------------------------------------------------------
+// Drive Auto-Loader (monitor)
+// -----------------------------------------------------------------------------
+// When a Drive access token becomes available (user signs in via GIS),
+// automatically load `portfolio-data.json` from Drive and apply it to the
+// current session. This does not rename or change any Drive files; it only
+// reads and applies the content so signed-in users see their Drive-saved
+// portfolio immediately.
+// -----------------------------------------------------------------------------
+
+;(function setupDriveAutoLoad() {
+  // Helper: check token presence
+  function hasDriveToken() {
+    try {
+      return !!(gapi && gapi.client && gapi.client.getToken && gapi.client.getToken().access_token);
+    } catch (e) { return false; }
+  }
+
+  // Poll for token for a short period after page load/sign-in events.
+  // If detected, call app.loadFromDrive().
+  let polled = false;
+  function pollTokenAndLoad() {
+    if (polled) return;
+    polled = true;
+    const start = Date.now();
+    const maxMs = 10_000; // poll up to 10s
+    const interval = 500;
+    const timer = setInterval(async () => {
+      if (hasDriveToken()) {
+        clearInterval(timer);
+        try {
+          console.log('Drive token detected — auto-loading portfolio from Drive.');
+          await window.app.loadFromDrive();
+        } catch (e) {
+          console.warn('Drive auto-load failed', e);
+        }
+      } else if (Date.now() - start > maxMs) {
+        clearInterval(timer);
+      }
+    }, interval);
+  }
+
+  // If GIS token client or gapi initialization code triggers a global event
+  // you can hook here. For now, attempt an initial poll (covers page loads
+  // where user already signed in) and also listen for focus events which often
+  // follow the OAuth popup flow.
+  try { pollTokenAndLoad(); } catch (e) { /* ignore */ }
+  window.addEventListener('focus', () => {
+    // When window regains focus after an OAuth popup, re-check token quickly
+    try { pollTokenAndLoad(); } catch (e) { /* ignore */ }
+  });
+})();
