@@ -595,3 +595,86 @@ class PortfolioApp {
 
 // Initialize the application
 const app = new PortfolioApp();
+
+// Drive persistence methods added to app prototype
+PortfolioApp.prototype.findDriveFile = async function(filename) {
+  try {
+    const res = await gapi.client.request({
+      path: 'https://www.googleapis.com/drive/v3/files',
+      method: 'GET',
+      params: { q: `name='${filename.replace(/'/g, "\\'")}' and trashed=false`, fields: 'files(id,name)'}
+    });
+    return (res.result.files && res.result.files[0]) || null;
+  } catch (e) {
+    console.error('findDriveFile error', e);
+    throw e;
+  }
+}
+
+PortfolioApp.prototype.saveToDrive = async function() {
+  try {
+    if (!gapi.client.getToken || !gapi.client.getToken().access_token) {
+      this.showToast('Not authenticated with Drive', 'info');
+      return;
+    }
+    const filename = 'portfolio-data.json';
+    const existing = await this.findDriveFile(filename).catch(()=>null);
+    const metadata = { name: filename, mimeType: 'application/json' };
+    const content = JSON.stringify({ achievements: this.achievements, reflections: this.reflections }, null, 2);
+
+    const boundary = '-------314159265358979323846';
+    const delimiter = "\r\n--" + boundary + "\r\n";
+    const close_delim = "\r\n--" + boundary + "--";
+
+    const multipartRequestBody =
+      delimiter +
+      'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+      JSON.stringify(metadata) +
+      delimiter +
+      'Content-Type: application/json\r\n\r\n' +
+      content +
+      close_delim;
+
+    let path = 'https://www.googleapis.com/upload/drive/v3/files';
+    if (existing && existing.id) {
+      path += '/' + existing.id + '?uploadType=multipart';
+    } else {
+      path += '?uploadType=multipart';
+    }
+
+    const resp = await gapi.client.request({
+      path,
+      method: existing ? 'PATCH' : 'POST',
+      headers: { 'Content-Type': 'multipart/related; boundary="' + boundary + '"' },
+      body: multipartRequestBody
+    });
+    console.log('Drive save response', resp);
+    this.showToast('Saved portfolio to Google Drive', 'success');
+  } catch (e) {
+    console.error('saveToDrive error', e);
+    this.showToast('Failed to save to Drive', 'error');
+  }
+}
+
+PortfolioApp.prototype.loadFromDrive = async function() {
+  try {
+    const filename = 'portfolio-data.json';
+    const file = await this.findDriveFile(filename);
+    if (!file) { this.showToast('No portfolio-data.json found in Drive', 'info'); return; }
+    const res = await gapi.client.request({ path: `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`, method: 'GET' });
+    const data = res.result;
+    if (data) {
+      this.achievements = data.achievements || [];
+      this.reflections = data.reflections || [];
+      this.renderAchievements();
+      this.renderReflections();
+      this.updateLinkedAchievements();
+      this.showToast('Loaded portfolio from Google Drive', 'success');
+    } else {
+      this.showToast('Failed to load portfolio data', 'error');
+    }
+  } catch (e) {
+    console.error('loadFromDrive error', e);
+    this.showToast('Failed to load from Drive', 'error');
+  }
+}
