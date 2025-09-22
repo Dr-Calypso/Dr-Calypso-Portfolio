@@ -16,6 +16,37 @@ class PortfolioApp {
   init() {
     this.bindEvents();
     this.showSection('personal');
+    // Load personal info from localStorage if present
+    this.loadPersonalInfo();
+  }
+
+  loadPersonalInfo() {
+    try {
+      const data = JSON.parse(localStorage.getItem('personalInfo') || '{}');
+      if (!data) return;
+  const fields = ['firstName','title','bio','email','phone','location','linkedin'];
+      fields.forEach(id => {
+        const display = document.getElementById(id + '-display');
+        const input = document.getElementById(id);
+        if (display && typeof data[id] !== 'undefined') display.textContent = data[id];
+        if (input && typeof data[id] !== 'undefined') input.value = data[id];
+      });
+      // Load avatar if present
+      const imgData = localStorage.getItem('profilePhoto');
+      if (imgData) {
+        const img = document.querySelector('.avatar-image');
+        const fallback = document.querySelector('.avatar-fallback');
+        if (img) { img.src = imgData; img.style.display = 'block'; }
+        if (fallback) { fallback.style.display = 'none'; }
+      } else {
+        // Show initials fallback
+        const first = data.firstName || '';
+  const last = '';
+        const initials = (first[0] || '') + (last[0] || '');
+        const fallback = document.querySelector('.avatar-fallback');
+        if (fallback) { fallback.textContent = initials; fallback.style.display = 'flex'; }
+      }
+    } catch (e) { console.warn('Failed to load personal info', e); }
   }
 
   bindEvents() {
@@ -27,47 +58,164 @@ class PortfolioApp {
       });
     });
 
+    // Achievement and Reflection Add buttons + form submit handlers
+    const addAchBtn = document.getElementById('add-achievement');
+    if (addAchBtn) addAchBtn.addEventListener('click', (e) => { e.preventDefault(); this.openAchievementModal(); });
+    const achForm = document.getElementById('achievement-form');
+    if (achForm) achForm.addEventListener('submit', (e) => { e.preventDefault(); this.saveAchievement(e); });
+
+    const addRefBtn = document.getElementById('add-reflection');
+    if (addRefBtn) addRefBtn.addEventListener('click', (e) => { e.preventDefault(); this.openReflectionModal(); });
+    const refForm = document.getElementById('reflection-form');
+    if (refForm) refForm.addEventListener('submit', (e) => { e.preventDefault(); this.saveReflection(e); });
+
+    // Search inputs for achievements and reflections (debounced)
+    const searchDesc = document.getElementById('search-descriptive');
+    if (searchDesc) {
+      let t = null;
+      searchDesc.addEventListener('input', (e) => {
+        clearTimeout(t);
+        t = setTimeout(() => {
+          const cat = this.getActiveDescriptiveCategory() || (document.getElementById('mobile-descriptive-select')?.value || '');
+          this.filterAchievements(e.target.value || '', cat);
+        }, 180);
+      });
+    }
+
+    const searchRef = document.getElementById('search-reflective');
+    if (searchRef) {
+      let t2 = null;
+      searchRef.addEventListener('input', (e) => {
+        clearTimeout(t2);
+        t2 = setTimeout(() => {
+          const mood = document.getElementById('filter-reflective')?.value || '';
+          this.filterReflections(e.target.value || '', mood);
+        }, 180);
+      });
+    }
+
+    // Export to PDF button (non-invasive): uses html2canvas + jsPDF
+    const exportBtn = document.getElementById('export-pdf');
+    if (exportBtn) exportBtn.addEventListener('click', (e) => { e.preventDefault(); this.exportToPdf(); });
+
     // Personal Info Edit Controls
     document.getElementById('edit-personal').addEventListener('click', () => this.toggleEditPersonal(true));
     document.getElementById('save-personal').addEventListener('click', () => this.savePersonal());
     document.getElementById('cancel-personal').addEventListener('click', () => this.toggleEditPersonal(false));
-
-    // Achievement Modal
-    document.getElementById('add-achievement').addEventListener('click', () => this.openAchievementModal());
-    document.getElementById('achievement-form').addEventListener('submit', (e) => this.saveAchievement(e));
-
-    // Reflection Modal
-    document.getElementById('add-reflection').addEventListener('click', () => this.openReflectionModal());
-    document.getElementById('reflection-form').addEventListener('submit', (e) => this.saveReflection(e));
-
-    // Modal Close Events
-    document.querySelectorAll('.modal-close, .modal-cancel').forEach(btn => {
-      btn.addEventListener('click', () => this.closeModals());
-    });
-
-    // Click outside modal to close
-    document.querySelectorAll('.modal').forEach(modal => {
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) this.closeModals();
+    // Change photo wiring: open hidden file input
+    const changePhotoBtn = document.getElementById('change-photo');
+    const photoInput = document.getElementById('profile-photo-input');
+    if (changePhotoBtn && photoInput) {
+      changePhotoBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        photoInput.click();
       });
+      photoInput.addEventListener('change', (ev) => {
+        const f = ev.target.files && ev.target.files[0];
+        if (!f) return;
+        // Resize image client-side to limit localStorage/Drive size before saving
+        this.resizeImage(f, 800, 0.8).then(dataUrl => {
+          const img = document.querySelector('.avatar-image');
+          const fallback = document.querySelector('.avatar-fallback');
+          if (img) { img.src = dataUrl; img.style.display = 'block'; }
+          if (fallback) { fallback.style.display = 'none'; }
+          // Persist to localStorage
+          try { localStorage.setItem('profilePhoto', dataUrl); } catch (err) { console.warn('Failed to persist profile photo', err); }
+        }).catch(err => {
+          console.warn('Image resize failed, falling back to direct read', err);
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const dataUrl = e.target.result;
+            const img = document.querySelector('.avatar-image');
+            const fallback = document.querySelector('.avatar-fallback');
+            if (img) { img.src = dataUrl; img.style.display = 'block'; }
+            if (fallback) { fallback.style.display = 'none'; }
+            try { localStorage.setItem('profilePhoto', dataUrl); } catch (err2) { console.warn('Failed to persist profile photo', err2); }
+          };
+          reader.readAsDataURL(f);
+        });
+      });
+    }
+
+  }
+
+  // Helper: resize an image file to a max dimension and return a data URL
+  resizeImage(file, maxDim = 800, quality = 0.8) {
+    return new Promise((resolve, reject) => {
+      if (!file.type.startsWith('image/')) return reject(new Error('Not an image'));
+      const img = new Image();
+      const reader = new FileReader();
+      reader.onerror = (e) => reject(e);
+      reader.onload = (e) => {
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            let { width, height } = img;
+            const ratio = width / height;
+            if (width > height) {
+              if (width > maxDim) { width = maxDim; height = Math.round(maxDim / ratio); }
+            } else {
+              if (height > maxDim) { height = maxDim; width = Math.round(maxDim * ratio); }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            // Fill white background for JPEG
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0,0,canvas.width,canvas.height);
+            // Draw centered and cover-style: compute scale and offset to cover the canvas
+            const sx = 0, sy = 0;
+            ctx.drawImage(img, sx, sy, img.width, img.height, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg', quality);
+            resolve(dataUrl);
+          } catch (err) { reject(err); }
+        };
+        img.onerror = (err) => reject(err);
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
     });
 
-    // Search and Filter
-    document.getElementById('search-descriptive').addEventListener('input', (e) => {
-      this.filterAchievements(e.target.value, document.getElementById('filter-descriptive').value);
-    });
+    }
 
-    document.getElementById('filter-descriptive').addEventListener('change', (e) => {
-      this.filterAchievements(document.getElementById('search-descriptive').value, e.target.value);
-    });
+    // Normalize/upgrade loaded JSON data (handles legacy shapes)
+    normalizeLoadedData(raw) {
+      if (!raw || typeof raw !== 'object') return { achievements: [], reflections: [], personalInfo: {}, profilePhoto: null };
+      const normalizeEntry = (entry) => {
+        if (!entry || typeof entry !== 'object') return null;
+        const out = Object.assign({}, entry);
+        // ensure id
+        out.id = out.id || (Date.now().toString() + Math.random().toString(36).slice(2,7));
+        // migrate single `image` to `images` array
+        if (out.image && !out.images) {
+          out.images = [{ name: out.image.name || 'image', type: out.image.type || 'image/jpeg', data: out.image.data || out.image }];
+          delete out.image;
+        }
+        // ensure images is an array
+        if (!Array.isArray(out.images)) out.images = out.images ? [out.images] : [];
+        // ensure required fields exist
+        out.title = out.title || '';
+        out.category = out.category || '';
+        out.date = out.date || new Date().toISOString().split('T')[0];
+        out.description = out.description || out.content || '';
+        out.status = out.status || 'completed';
+        return out;
+      };
 
-    document.getElementById('search-reflective').addEventListener('input', (e) => {
-      this.filterReflections(e.target.value, document.getElementById('filter-reflective').value);
-    });
+      const achievements = Array.isArray(raw.achievements) ? raw.achievements.map(normalizeEntry).filter(Boolean) : [];
+      const reflections = Array.isArray(raw.reflections) ? raw.reflections.map(normalizeEntry).filter(Boolean) : [];
+      const personalInfo = raw.personalInfo || {};
+      const profilePhoto = raw.profilePhoto || null;
+      return { achievements, reflections, personalInfo, profilePhoto };
+    }
 
-    document.getElementById('filter-reflective').addEventListener('change', (e) => {
-      this.filterReflections(document.getElementById('search-reflective').value, e.target.value);
-    });
+  
+  
+
+  // Helper: returns currently selected descriptive category ('' means all)
+  getActiveDescriptiveCategory() {
+    const active = document.querySelector('.descriptive-category.active');
+    return (active && active.dataset && typeof active.dataset.category === 'string') ? active.dataset.category : '';
   }
 
   showSection(sectionName) {
@@ -105,18 +253,18 @@ class PortfolioApp {
 
     // Toggle display spans and input fields
     const fields = [
-      'firstName', 'lastName', 'title', 'bio', 'email', 'phone', 'location', 'linkedin', 'github', 'website'
+  'firstName', 'title', 'bio', 'email', 'phone', 'location', 'linkedin'
     ];
     fields.forEach(id => {
       const input = document.getElementById(id);
       const display = document.getElementById(id + '-display');
       if (input && display) {
         if (editing) {
-          input.style.display = 'inline-block';
+          input.style.display = 'block';
           display.style.display = 'none';
         } else {
           input.style.display = 'none';
-          display.style.display = 'inline';
+          display.style.display = 'block';
         }
       }
     });
@@ -125,20 +273,26 @@ class PortfolioApp {
   savePersonal() {
     // Update display spans with new values
     const fields = [
-      'firstName', 'lastName', 'title', 'bio', 'email', 'phone', 'location', 'linkedin', 'github', 'website'
+      'firstName', 'title', 'bio', 'email', 'phone', 'location', 'linkedin'
     ];
+    const saved = JSON.parse(localStorage.getItem('personalInfo') || '{}');
     fields.forEach(id => {
       const input = document.getElementById(id);
       const display = document.getElementById(id + '-display');
       if (input && display) {
         display.textContent = input.value;
+        saved[id] = input.value;
       }
     });
     // Update avatar initials
-    const firstName = document.getElementById('firstName').value;
-    const lastName = document.getElementById('lastName').value;
-    document.querySelector('.avatar-fallback').textContent = 
-      (firstName[0] || '') + (lastName[0] || '');
+    const firstName = document.getElementById('firstName').value || '';
+  const initials = (firstName[0] || '');
+    const avatarFallback = document.querySelector('.avatar-fallback');
+    if (avatarFallback) { avatarFallback.textContent = initials; }
+
+    // Persist to localStorage
+    localStorage.setItem('personalInfo', JSON.stringify(saved));
+
     this.toggleEditPersonal(false);
     this.showToast('Personal information updated successfully', 'success');
   }
@@ -156,6 +310,10 @@ class PortfolioApp {
       document.getElementById('achievement-date').value = achievement.date;
       document.getElementById('achievement-description').value = achievement.description;
       document.getElementById('achievement-status').value = achievement.status;
+      // Clear file inputs (browsers won't let us populate them programmatically)
+      try { document.getElementById('achievement-image').value = null; } catch (e) {}
+      try { document.getElementById('achievement-ppt').value = null; } catch (e) {}
+      try { document.getElementById('achievement-pdf').value = null; } catch (e) {}
     } else {
       title.textContent = 'Add Achievement';
       document.getElementById('achievement-form').reset();
@@ -163,38 +321,52 @@ class PortfolioApp {
     }
     
     modal.classList.add('active');
+    // Ensure controls inside this modal reliably close it (bind on open)
+    try {
+      const closeBtn = modal.querySelector('.modal-close');
+      if (closeBtn) { closeBtn.onclick = () => this.closeModals(); }
+      modal.querySelectorAll('.modal-cancel').forEach(b => { b.onclick = () => this.closeModals(); });
+    } catch (e) { /* ignore */ }
   }
 
   saveAchievement(e) {
     e.preventDefault();
-    const getFileData = (inputId) => {
+    const getFileData = async (inputId, allowMultiple = false) => {
       const fileInput = document.getElementById(inputId);
-      if (fileInput && fileInput.files && fileInput.files[0]) {
-        const file = fileInput.files[0];
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = function(e) {
-            resolve({
-              name: file.name,
-              type: file.type,
-              data: e.target.result
-            });
-          };
-          if (file.type.startsWith('image/')) {
-            reader.readAsDataURL(file);
-          } else {
-            reader.readAsDataURL(file);
-          }
+      if (!fileInput || !fileInput.files || fileInput.files.length === 0) return null;
+      const files = Array.from(fileInput.files);
+      // Read each file; for images use resizeImage to limit size
+      const readers = files.map(file => {
+        return new Promise(async (resolve) => {
+          try {
+            if (file.type.startsWith('image/')) {
+              // Use resizeImage to produce a JPEG data URL
+              try {
+                const data = await this.resizeImage(file, 800, 0.8);
+                resolve({ name: file.name, type: file.type, data });
+              } catch (e) {
+                // fallback to FileReader
+                const r = new FileReader();
+                r.onload = (ev) => resolve({ name: file.name, type: file.type, data: ev.target.result });
+                r.readAsDataURL(file);
+              }
+            } else {
+              const r = new FileReader();
+              r.onload = (ev) => resolve({ name: file.name, type: file.type, data: ev.target.result });
+              r.readAsDataURL(file);
+            }
+          } catch (err) { resolve(null); }
         });
-      }
-      return Promise.resolve(null);
+      });
+      const results = await Promise.all(readers);
+      return allowMultiple ? results.filter(Boolean) : (results[0] || null);
     };
 
     Promise.all([
-      getFileData('achievement-image'),
-      getFileData('achievement-ppt'),
-      getFileData('achievement-pdf')
-    ]).then(([image, ppt, pdf]) => {
+      getFileData('achievement-image', true),
+      getFileData('achievement-ppt', false),
+      getFileData('achievement-pdf', false)
+    ]).then(([images, ppt, pdf]) => {
       const formData = {
         id: this.editingAchievement?.id || Date.now().toString(),
         title: document.getElementById('achievement-title').value,
@@ -202,7 +374,7 @@ class PortfolioApp {
         date: document.getElementById('achievement-date').value,
         description: document.getElementById('achievement-description').value,
         status: document.getElementById('achievement-status').value,
-        image,
+        images: images || null,
         ppt,
         pdf
       };
@@ -244,6 +416,12 @@ class PortfolioApp {
     });
   }
 
+  // Helper to open modal by id (prevents embedding large data URLs into inline handlers)
+  openAchievementModalById(id) {
+    const a = this.achievements.find(x => x.id === id);
+    if (a) this.openAchievementModal(a);
+  }
+
   renderAchievements() {
     const container = document.getElementById('achievements-container');
     
@@ -257,9 +435,16 @@ class PortfolioApp {
       return;
     }
 
-    container.innerHTML = this.achievements.map(achievement => {
+  container.innerHTML = this.achievements.map(achievement => {
       let fileHtml = '';
-      if (achievement.image && achievement.image.data) {
+      // Images may be an array
+      if (Array.isArray(achievement.images) && achievement.images.length) {
+        fileHtml += `<div class="achievement-images" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">`;
+        achievement.images.forEach(img => {
+          if (img && img.data) fileHtml += `<div style="flex:1 0 120px;max-width:220px;"><img src="${img.data}" alt="Achievement Image" style="width:100%;height:auto;border-radius:6px;object-fit:cover;"></div>`;
+        });
+        fileHtml += `</div>`;
+      } else if (achievement.image && achievement.image.data) {
         fileHtml += `<div><img src="${achievement.image.data}" alt="Achievement Image" style="max-width:100%;max-height:200px;margin-bottom:8px;"></div>`;
       }
       if (achievement.pdf && achievement.pdf.data) {
@@ -270,8 +455,8 @@ class PortfolioApp {
         const officeUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(achievement.ppt.data)}`;
         fileHtml += `<div><a href="${officeUrl}" target="_blank" rel="noopener" class="btn btn-outline btn-sm">View PPT (Office Online)</a></div>`;
       }
-      return `
-      <div class="achievement-card">
+  return `
+  <div class="achievement-card" data-category="${(achievement.category||'').toLowerCase()}">
         <div class="achievement-header">
           <span class="achievement-category ${achievement.category}">${achievement.category}</span>
           <span class="achievement-status ${achievement.status.replace('-', '')}">${achievement.status.replace('-', ' ')}</span>
@@ -281,14 +466,14 @@ class PortfolioApp {
         <p class="achievement-description">${achievement.description}</p>
         ${fileHtml}
         <div class="achievement-actions">
-          <button class="btn btn-outline btn-sm" onclick="app.openAchievementModal(${JSON.stringify(achievement).replace(/\"/g, '&quot;')})">
+          <button class="btn btn-outline btn-sm" data-edit-id="${achievement.id}">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
               <path d="m18.5 2.5 a2.828 2.828 0 1 1 4 4L12 16l-4 1 1-4 10.5-10.5z"/>
             </svg>
             Edit
           </button>
-          <button class="btn btn-outline btn-sm" onclick="app.deleteAchievement('${achievement.id}')">
+          <button class="btn btn-outline btn-sm" data-delete-id="${achievement.id}">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <polyline points="3,6 5,6 21,6"/>
               <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"/>
@@ -299,6 +484,95 @@ class PortfolioApp {
       </div>
       `;
     }).join('');
+
+    // Update category cards counts after rendering
+    if (typeof this.updateCategoryCards === 'function') this.updateCategoryCards();
+
+    // Wire category-card clicks (so the summary cards filter the grid)
+    document.querySelectorAll('#category-cards .cat-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        const key = card.dataset.key || '';
+        // Activate matching descriptive pill (ensure aria attributes and unique active state)
+        document.querySelectorAll('.descriptive-category').forEach(p => { p.classList.remove('active'); p.setAttribute('aria-pressed', 'false'); });
+        const matchingPill = document.querySelector(`.descriptive-category[data-category="${key}"]`);
+        if (matchingPill) { matchingPill.classList.add('active'); matchingPill.setAttribute('aria-pressed','true'); }
+        // Update mobile select if present
+        const mobileSelect = document.getElementById('mobile-descriptive-select');
+        if (mobileSelect) { mobileSelect.value = key || ''; mobileSelect.classList.toggle('active', !!key); }
+        // Filter
+        this.filterAchievements(document.getElementById('search-descriptive')?.value || '', key);
+      });
+    });
+
+    // Wire edit/delete buttons by id (avoid embedding large data in onclick)
+    container.querySelectorAll('[data-edit-id]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = btn.dataset.editId;
+        this.openAchievementModalById(id);
+      });
+    });
+    container.querySelectorAll('[data-delete-id]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = btn.dataset.deleteId;
+        this.deleteAchievement(id);
+      });
+    });
+
+    // Ensure descriptive pills still filter correctly (rebind in case of dynamic HTML)
+    document.querySelectorAll('.descriptive-category').forEach(btn => {
+      btn.onclick = (e) => {
+        document.querySelectorAll('.descriptive-category').forEach(b => b.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+        const cat = e.currentTarget.dataset.category || '';
+        const searchVal = document.getElementById('search-descriptive')?.value || '';
+        // Sync mobile select
+        const mobile = document.getElementById('mobile-descriptive-select'); if (mobile) mobile.value = cat;
+        this.filterAchievements(searchVal, cat);
+      };
+    });
+  }
+
+  // Override filterAchievements to use achievement.dataset or data-category attribute instead of inner text
+  filterAchievements(search, category) {
+    const q = (search || '').toLowerCase();
+    const achievements = document.querySelectorAll('.achievement-card');
+    achievements.forEach(card => {
+      const titleEl = card.querySelector('.achievement-title');
+      const descEl = card.querySelector('.achievement-description');
+      const title = (titleEl && titleEl.textContent || '').toLowerCase();
+      const description = (descEl && descEl.textContent || '').toLowerCase();
+      const cardCategory = (card.dataset.category || (card.querySelector('.achievement-category') && card.querySelector('.achievement-category').textContent) || '').toLowerCase();
+      // Prefer title match; fall back to description if title not matched
+      const matchesSearch = q === '' ? true : (title.includes(q) || description.includes(q));
+      const matchesCategory = !category || category === '' || cardCategory === (category || '').toLowerCase();
+      card.style.display = (matchesSearch && matchesCategory) ? 'block' : 'none';
+    });
+  }
+
+  // Update the small category cards' counts based on current achievements
+  updateCategoryCards() {
+    // Count exactly the four requested categories
+    const keys = {
+      academic: 0,
+      clinical: 0,
+      extracurricular: 0,
+      research: 0
+    };
+    (this.achievements || []).forEach(a => {
+      const cat = (a.category || '').toLowerCase();
+      if (cat === 'academic') keys.academic++;
+      else if (cat === 'clinical') keys.clinical++;
+      else if (cat === 'extracurricular' || cat === 'extracurriculars') keys.extracurricular++;
+      else if (cat === 'research') keys.research++;
+    });
+
+    const cards = document.querySelectorAll('#category-cards .cat-card');
+    cards.forEach(card => {
+      const key = card.dataset.key;
+      const count = keys[key] || 0;
+      const countEl = card.querySelector('.cat-count');
+      if (countEl) countEl.textContent = count;
+    });
   }
 
   // Reflection Management
@@ -314,6 +588,10 @@ class PortfolioApp {
       document.getElementById('reflection-mood').value = reflection.mood;
       document.getElementById('reflection-content').value = reflection.content;
       document.getElementById('reflection-linked').value = reflection.linkedAchievement || '';
+      // Clear file inputs for security/browsers and avoid stale file submission
+      try { document.getElementById('reflection-image').value = null; } catch (e) {}
+      try { document.getElementById('reflection-ppt').value = null; } catch (e) {}
+      try { document.getElementById('reflection-pdf').value = null; } catch (e) {}
     } else {
       title.textContent = 'Add Reflection';
       document.getElementById('reflection-form').reset();
@@ -321,38 +599,49 @@ class PortfolioApp {
     }
     
     modal.classList.add('active');
+    // Ensure controls inside this modal reliably close it (bind on open)
+    try {
+      const closeBtn = modal.querySelector('.modal-close');
+      if (closeBtn) { closeBtn.onclick = () => this.closeModals(); }
+      modal.querySelectorAll('.modal-cancel').forEach(b => { b.onclick = () => this.closeModals(); });
+    } catch (e) { /* ignore */ }
   }
 
   saveReflection(e) {
     e.preventDefault();
-    const getFileData = (inputId) => {
+    const getFileData = async (inputId, allowMultiple = false) => {
       const fileInput = document.getElementById(inputId);
-      if (fileInput && fileInput.files && fileInput.files[0]) {
-        const file = fileInput.files[0];
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = function(e) {
-            resolve({
-              name: file.name,
-              type: file.type,
-              data: e.target.result
-            });
-          };
-          if (file.type.startsWith('image/')) {
-            reader.readAsDataURL(file);
-          } else {
-            reader.readAsDataURL(file);
-          }
+      if (!fileInput || !fileInput.files || fileInput.files.length === 0) return null;
+      const files = Array.from(fileInput.files);
+      const readers = files.map(file => {
+        return new Promise(async (resolve) => {
+          try {
+            if (file.type.startsWith('image/')) {
+              try {
+                const data = await this.resizeImage(file, 800, 0.8);
+                resolve({ name: file.name, type: file.type, data });
+              } catch (e) {
+                const r = new FileReader();
+                r.onload = (ev) => resolve({ name: file.name, type: file.type, data: ev.target.result });
+                r.readAsDataURL(file);
+              }
+            } else {
+              const r = new FileReader();
+              r.onload = (ev) => resolve({ name: file.name, type: file.type, data: ev.target.result });
+              r.readAsDataURL(file);
+            }
+          } catch (err) { resolve(null); }
         });
-      }
-      return Promise.resolve(null);
+      });
+      const results = await Promise.all(readers);
+      return allowMultiple ? results.filter(Boolean) : (results[0] || null);
     };
 
     Promise.all([
-      getFileData('reflection-image'),
-      getFileData('reflection-ppt'),
-      getFileData('reflection-pdf')
-    ]).then(([image, ppt, pdf]) => {
+      getFileData('reflection-image', true),
+      getFileData('reflection-ppt', false),
+      getFileData('reflection-pdf', false)
+    ]).then(([images, ppt, pdf]) => {
       const formData = {
         id: this.editingReflection?.id || Date.now().toString(),
         title: document.getElementById('reflection-title').value,
@@ -360,7 +649,7 @@ class PortfolioApp {
         mood: document.getElementById('reflection-mood').value,
         content: document.getElementById('reflection-content').value,
         linkedAchievement: document.getElementById('reflection-linked').value || null,
-        image,
+        images: images || null,
         ppt,
         pdf
       };
@@ -377,6 +666,11 @@ class PortfolioApp {
     });
   }
 
+  openReflectionModalById(id) {
+    const r = this.reflections.find(x => x.id === id);
+    if (r) this.openReflectionModal(r);
+  }
+
   deleteReflection(id) {
     if (confirm('Are you sure you want to delete this reflection?')) {
       this.reflections = this.reflections.filter(r => r.id !== id);
@@ -386,18 +680,18 @@ class PortfolioApp {
   }
 
   filterReflections(search, mood) {
+    const q = (search || '').toLowerCase();
     const reflections = document.querySelectorAll('.reflection-card');
-    
     reflections.forEach(card => {
-      const title = card.querySelector('.reflection-title').textContent.toLowerCase();
-      const content = card.querySelector('.reflection-content').textContent.toLowerCase();
-      const cardMood = card.querySelector('.reflection-mood').textContent.toLowerCase();
-      
-      const matchesSearch = title.includes(search.toLowerCase()) || 
-                           content.includes(search.toLowerCase());
-      const matchesMood = !mood || cardMood.includes(mood.toLowerCase());
-      
-      card.style.display = matchesSearch && matchesMood ? 'block' : 'none';
+      const titleEl = card.querySelector('.reflection-title');
+      const contentEl = card.querySelector('.reflection-content');
+      const moodEl = card.querySelector('.reflection-mood');
+      const title = (titleEl && titleEl.textContent || '').toLowerCase();
+      const content = (contentEl && contentEl.textContent || '').toLowerCase();
+      const cardMood = (moodEl && moodEl.textContent || '').toLowerCase();
+      const matchesSearch = q === '' ? true : (title.includes(q) || content.includes(q));
+      const matchesMood = !mood || mood === '' ? true : cardMood === (mood || '').toLowerCase();
+      card.style.display = (matchesSearch && matchesMood) ? 'block' : 'none';
     });
   }
 
@@ -417,7 +711,11 @@ class PortfolioApp {
     container.innerHTML = this.reflections.map(reflection => {
       const linkedAchievement = this.achievements.find(a => a.id === reflection.linkedAchievement);
       let fileHtml = '';
-      if (reflection.image && reflection.image.data) {
+      if (Array.isArray(reflection.images) && reflection.images.length) {
+        fileHtml += `<div class="reflection-images" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">`;
+        reflection.images.forEach(img => { if (img && img.data) fileHtml += `<div style="flex:1 0 120px;max-width:220px;"><img src="${img.data}" alt="Reflection Image" style="width:100%;height:auto;border-radius:6px;object-fit:cover;"></div>` });
+        fileHtml += `</div>`;
+      } else if (reflection.image && reflection.image.data) {
         fileHtml += `<div><img src="${reflection.image.data}" alt="Reflection Image" style="max-width:100%;max-height:200px;margin-bottom:8px;"></div>`;
       }
       if (reflection.pdf && reflection.pdf.data) {
@@ -435,14 +733,14 @@ class PortfolioApp {
               <div class="reflection-date">${this.formatDate(reflection.date)}</div>
             </div>
             <div class="reflection-actions">
-              <button class="btn btn-outline btn-sm" onclick="app.openReflectionModal(${JSON.stringify(reflection).replace(/\"/g, '&quot;')})">
+                <button class="btn btn-outline btn-sm" data-edit-id="${reflection.id}">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                   <path d="m18.5 2.5 a2.828 2.828 0 1 1 4 4L12 16l-4 1 1-4 10.5-10.5z"/>
                 </svg>
                 Edit
               </button>
-              <button class="btn btn-outline btn-sm" onclick="app.deleteReflection('${reflection.id}')">
+                <button class="btn btn-outline btn-sm" data-delete-id="${reflection.id}">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                   <polyline points="3,6 5,6 21,6"/>
                   <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"/>
@@ -463,6 +761,20 @@ class PortfolioApp {
         </div>
       `;
     }).join('');
+
+    // Wire edit/delete handlers for reflections
+    container.querySelectorAll('[data-edit-id]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = btn.dataset.editId;
+        this.openReflectionModalById(id);
+      });
+    });
+    container.querySelectorAll('[data-delete-id]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = btn.dataset.deleteId;
+        this.deleteReflection(id);
+      });
+    });
   }
 
   updateLinkedAchievements() {
@@ -480,6 +792,180 @@ class PortfolioApp {
     });
     this.editingAchievement = null;
     this.editingReflection = null;
+  }
+
+  // Export visible portfolio content to PDF using html2canvas + jsPDF
+  async exportToPdf() {
+    try {
+      if (typeof html2canvas === 'undefined' || (typeof window.jspdf === 'undefined' && typeof jsPDF === 'undefined')) {
+        this.showToast('PDF libraries not loaded', 'error');
+        return;
+      }
+      const JSPDF = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : (typeof jsPDF !== 'undefined' ? jsPDF : null);
+      if (!JSPDF) { this.showToast('jsPDF not available', 'error'); return; }
+
+      // PDF layout parameters
+      const pdf = new JSPDF('p', 'pt', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 28; // points
+      const contentWidth = pageWidth - margin * 2;
+      let cursorY = margin;
+
+      // Color map for categories and statuses (approximate)
+      const categoryColors = {
+        academic: { bg: '#eaf4ff', color: '#2b8aef' },
+        clinical: { bg: '#ecfdf5', color: '#10b981' },
+        extracurricular: { bg: '#fff7ed', color: '#f97316' },
+        research: { bg: '#f3e8ff', color: '#8b5cf6' },
+        certification: { bg: '#fff7f0', color: '#ef4444' }
+      };
+      const statusColors = {
+        completed: '#10b981',
+        'in-progress': '#f59e0b',
+        planned: '#3b82f6'
+      };
+
+      // Helper to create a styled card DOM node for an achievement or reflection
+      const createAchievementCardNode = (a) => {
+        const card = document.createElement('div');
+        card.style.boxSizing = 'border-box';
+        card.style.width = '800px';
+        card.style.padding = '14px';
+        card.style.borderRadius = '12px';
+        card.style.background = '#ffffff';
+        card.style.boxShadow = '0 8px 24px rgba(16,24,40,0.06)';
+        card.style.marginBottom = '12px';
+        // Header row with category badge and status
+        const header = document.createElement('div'); header.style.display='flex'; header.style.justifyContent='space-between'; header.style.alignItems='center';
+        const left = document.createElement('div'); left.style.display='flex'; left.style.alignItems='center'; left.style.gap='10px';
+        const cat = document.createElement('div');
+        const catKey = (a.category || '').toLowerCase();
+        const catStyle = categoryColors[catKey] || { bg: '#f3f4f6', color: '#374151' };
+        cat.textContent = (a.category || '').toUpperCase();
+        cat.style.background = catStyle.bg; cat.style.color = catStyle.color; cat.style.fontWeight='700'; cat.style.padding='6px 8px'; cat.style.borderRadius='999px'; cat.style.fontSize='11px';
+        left.appendChild(cat);
+        header.appendChild(left);
+
+        const right = document.createElement('div'); right.style.display='flex'; right.style.alignItems='center'; right.style.gap='8px';
+        const status = document.createElement('div'); status.textContent = (a.status || '').replace('-', ' ');
+        const stColor = statusColors[(a.status||'').toLowerCase()] || '#6b7280';
+        status.style.color = stColor; status.style.border = `1px solid ${stColor}33`; status.style.padding='6px 8px'; status.style.borderRadius='999px'; status.style.fontSize='11px'; status.style.fontWeight='700';
+        right.appendChild(status);
+        header.appendChild(right);
+
+        card.appendChild(header);
+        const title = document.createElement('h3'); title.textContent = a.title || ''; title.style.margin='10px 0 6px 0'; title.style.fontSize='16px'; title.style.color='#0f172a';
+        card.appendChild(title);
+        const meta = document.createElement('div'); meta.textContent = this.formatDate(a.date || new Date().toISOString()); meta.style.fontSize='12px'; meta.style.color='#64748b'; card.appendChild(meta);
+        const desc = document.createElement('p'); desc.textContent = a.description || ''; desc.style.fontSize='13px'; desc.style.color='#475569'; desc.style.marginTop='8px'; desc.style.lineHeight='1.4'; card.appendChild(desc);
+        // images
+        if (Array.isArray(a.images) && a.images.length) {
+          const row = document.createElement('div'); row.style.display='flex'; row.style.gap='8px'; row.style.flexWrap='wrap'; row.style.marginTop='10px';
+          a.images.forEach(img => { if (!img || !img.data) return; const im = document.createElement('img'); im.src = img.data; im.style.width='220px'; im.style.height='140px'; im.style.objectFit='cover'; im.style.borderRadius='8px'; im.style.boxShadow='0 6px 18px rgba(16,24,40,0.06)'; row.appendChild(im); });
+          card.appendChild(row);
+        }
+        return card;
+      };
+
+      const createReflectionCardNode = (r) => {
+        const card = document.createElement('div');
+        card.style.boxSizing = 'border-box';
+        card.style.width = '800px';
+        card.style.padding = '14px';
+        card.style.borderRadius = '12px';
+        card.style.background = '#ffffff';
+        card.style.boxShadow = '0 8px 24px rgba(16,24,40,0.06)';
+        card.style.marginBottom = '12px';
+        const header = document.createElement('div'); header.style.display='flex'; header.style.justifyContent='space-between'; header.style.alignItems='center';
+        const left = document.createElement('div'); left.style.display='flex'; left.style.flexDirection='column';
+        const mood = document.createElement('div'); mood.textContent = (r.mood || '').toUpperCase(); mood.style.fontSize='11px'; mood.style.fontWeight='700'; mood.style.color='#0f172a';
+        left.appendChild(mood);
+        header.appendChild(left);
+        const right = document.createElement('div'); right.style.fontSize='12px'; right.style.color='#64748b'; right.textContent = this.formatDate(r.date || new Date().toISOString());
+        header.appendChild(right);
+        card.appendChild(header);
+        const title = document.createElement('h3'); title.textContent = r.title || ''; title.style.margin='10px 0 6px 0'; title.style.fontSize='16px'; title.style.color='#0f172a';
+        card.appendChild(title);
+        const content = document.createElement('div'); content.textContent = r.content || ''; content.style.fontSize='13px'; content.style.color='#475569'; content.style.lineHeight='1.5'; content.style.marginTop='8px'; card.appendChild(content);
+        if (Array.isArray(r.images) && r.images.length) {
+          const row = document.createElement('div'); row.style.display='flex'; row.style.gap='8px'; row.style.flexWrap='wrap'; row.style.marginTop='10px';
+          r.images.forEach(img => { if (!img || !img.data) return; const im = document.createElement('img'); im.src = img.data; im.style.width='220px'; im.style.height='140px'; im.style.objectFit='cover'; im.style.borderRadius='8px'; im.style.boxShadow='0 6px 18px rgba(16,24,40,0.06)'; row.appendChild(im); });
+          card.appendChild(row);
+        }
+        return card;
+      };
+
+      // Create hidden render container
+      const renderRoot = document.createElement('div');
+      renderRoot.style.position = 'fixed'; renderRoot.style.left='-9999px'; renderRoot.style.top='0'; renderRoot.style.width='820px'; renderRoot.style.zIndex='99999'; renderRoot.style.padding='10px';
+      document.body.appendChild(renderRoot);
+
+      // Personal header card
+      try {
+        const personalInfo = JSON.parse(localStorage.getItem('personalInfo') || '{}');
+        const personalCard = document.createElement('div'); personalCard.style.width='800px'; personalCard.style.padding='14px'; personalCard.style.background='#fff'; personalCard.style.borderRadius='12px'; personalCard.style.boxShadow='0 8px 24px rgba(16,24,40,0.06)'; personalCard.style.marginBottom='12px';
+        const name = document.createElement('h1'); name.textContent = personalInfo.firstName || document.getElementById('firstName-display')?.textContent || 'Profile'; name.style.margin='0 0 6px 0'; name.style.fontSize='20px'; personalCard.appendChild(name);
+        const prof = document.createElement('div'); prof.textContent = personalInfo.title || document.getElementById('title-display')?.textContent || ''; prof.style.color='#64748b'; personalCard.appendChild(prof);
+        const bio = document.createElement('p'); bio.textContent = personalInfo.bio || document.getElementById('bio-display')?.textContent || ''; bio.style.marginTop='8px'; bio.style.color='#475569'; personalCard.appendChild(bio);
+        renderRoot.appendChild(personalCard);
+      } catch (e) { /* ignore */ }
+
+      // Achievements grouped by category with stylish cards
+      const categories = ['academic','clinical','extracurricular','research','certification'];
+      for (const cat of categories) {
+        const items = (this.achievements || []).filter(a => ((a.category||'').toLowerCase() === cat));
+        if (!items || items.length === 0) continue;
+        const sectionTitle = document.createElement('div'); sectionTitle.style.width='800px'; sectionTitle.style.margin='12px 0'; const h2 = document.createElement('h2'); h2.textContent = cat.charAt(0).toUpperCase() + cat.slice(1); h2.style.fontSize='18px'; h2.style.margin='0 0 8px 0'; sectionTitle.appendChild(h2); renderRoot.appendChild(sectionTitle);
+        for (const it of items) {
+          const node = createAchievementCardNode(it);
+          renderRoot.appendChild(node);
+        }
+      }
+
+      // Reflections
+      if ((this.reflections || []).length) {
+        const h2wrap = document.createElement('div'); h2wrap.style.width='800px'; const h2 = document.createElement('h2'); h2.textContent='Reflections'; h2.style.fontSize='18px'; h2.style.margin='12px 0 8px 0'; h2wrap.appendChild(h2); renderRoot.appendChild(h2wrap);
+        for (const r of this.reflections) {
+          const node = createReflectionCardNode(r);
+          renderRoot.appendChild(node);
+        }
+      }
+
+      // Now render each child (which should be individual cards/sections) and add to PDF, stacking vertically
+      const children = Array.from(renderRoot.children);
+      let pageIndex = 0;
+      for (let i = 0; i < children.length; i++) {
+        const node = children[i];
+        // Render node to canvas
+        // Use scale 2 for clarity
+        // Ensure images are loaded by waiting a tick
+        await new Promise(r => setTimeout(r, 50));
+        const canvas = await html2canvas(node, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' });
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        // compute image size in pdf points
+        const pxWidth = canvas.width;
+        const pxHeight = canvas.height;
+        const pdfImgWidth = contentWidth; // fit to content width
+        const pdfImgHeight = (pxHeight * pdfImgWidth) / pxWidth;
+
+        if (cursorY + pdfImgHeight > pageHeight - margin) {
+          pdf.addPage(); pageIndex++; cursorY = margin;
+        }
+        pdf.addImage(imgData, 'JPEG', margin, cursorY, pdfImgWidth, pdfImgHeight);
+        cursorY += pdfImgHeight + 12; // small gap
+      }
+
+      // Cleanup render root
+      document.body.removeChild(renderRoot);
+      // Save PDF
+      const filename = `portfolio-export-${new Date().toISOString().split('T')[0]}.pdf`;
+      pdf.save(filename);
+      this.showToast('Exported portfolio to PDF', 'success');
+    } catch (err) {
+      console.error('exportToPdf error', err);
+      this.showToast('Failed to export PDF', 'error');
+    }
   }
 
   formatDate(dateString) {
@@ -620,16 +1106,23 @@ PortfolioApp.prototype.loadFromRepoIfPresent = async function() {
       console.log(`Repo JSON not found at ${repoFilename} (status ${resp.status}). Using local data.`);
       return false;
     }
-    const data = await resp.json();
+  const data = await resp.json();
+  // Normalize older JSON shapes so legacy files won't break the app
+  const normalized = (this && typeof this.normalizeLoadedData === 'function') ? this.normalizeLoadedData(data) : data;
     if (!data) {
       console.warn('Repo JSON fetched but empty / invalid.');
       return false;
     }
-    // Apply data exactly as stored in the JSON file
-    // Use a safe reference to the instance in case `this` is not bound
+    // Apply normalized data to the instance (use safe instance reference)
     const inst = (this && typeof this.renderAchievements === 'function') ? this : (window.app || this);
-    inst.achievements = Array.isArray(data.achievements) ? data.achievements : [];
-    inst.reflections = Array.isArray(data.reflections) ? data.reflections : [];
+    inst.achievements = Array.isArray(normalized.achievements) ? normalized.achievements : [];
+    inst.reflections = Array.isArray(normalized.reflections) ? normalized.reflections : [];
+    // Restore personal info and profile photo if present
+    try {
+      if (normalized.personalInfo) localStorage.setItem('personalInfo', JSON.stringify(normalized.personalInfo));
+      if (normalized.profilePhoto) localStorage.setItem('profilePhoto', normalized.profilePhoto);
+    } catch (e) { console.warn('Failed to persist personal info from repo JSON', e); }
+    if (typeof inst.loadPersonalInfo === 'function') inst.loadPersonalInfo();
     // Re-render UI now that data is replaced
     if (typeof inst.renderAchievements === 'function') inst.renderAchievements();
     if (typeof inst.renderReflections === 'function') inst.renderReflections();
@@ -670,6 +1163,11 @@ PortfolioApp.prototype.findDriveFile = async function(filename) {
 
 PortfolioApp.prototype.saveToDrive = async function() {
   try {
+    // Guard: ensure gapi and gapi.client exist to avoid ReferenceError when Drive is not initialized
+    if (typeof gapi === 'undefined' || !gapi || !gapi.client) {
+      this.showToast('Google API not loaded. Initialize Drive integration first.', 'error');
+      return;
+    }
     if (!gapi.client.getToken || !gapi.client.getToken().access_token) {
       this.showToast('Not authenticated with Drive', 'info');
       return;
@@ -677,7 +1175,10 @@ PortfolioApp.prototype.saveToDrive = async function() {
     const filename = 'portfolio-data.json';
     const existing = await this.findDriveFile(filename).catch(()=>null);
     const metadata = { name: filename, mimeType: 'application/json' };
-    const content = JSON.stringify({ achievements: this.achievements, reflections: this.reflections }, null, 2);
+  // Include personalInfo and profilePhoto (if any) from localStorage in the saved JSON
+  const personalInfo = JSON.parse(localStorage.getItem('personalInfo') || '{}');
+  const profilePhoto = localStorage.getItem('profilePhoto') || null;
+  const content = JSON.stringify({ achievements: this.achievements, reflections: this.reflections, personalInfo, profilePhoto }, null, 2);
 
     const boundary = '-------314159265358979323846';
     const delimiter = "\r\n--" + boundary + "\r\n";
@@ -724,6 +1225,11 @@ PortfolioApp.prototype.saveToDrive = async function() {
 
 PortfolioApp.prototype.loadFromDrive = async function() {
   try {
+    // Guard: ensure gapi is available before attempting to use it
+    if (typeof gapi === 'undefined' || !gapi || !gapi.client) {
+      this.showToast('Google API not loaded. Initialize Drive integration first.', 'error');
+      return;
+    }
     const filename = 'portfolio-data.json';
     const file = await this.findDriveFile(filename);
     if (!file) { this.showToast('No portfolio-data.json found in Drive', 'info'); return; }
@@ -733,6 +1239,12 @@ PortfolioApp.prototype.loadFromDrive = async function() {
       const inst = (this && typeof this.renderAchievements === 'function') ? this : (window.app || this);
       inst.achievements = data.achievements || [];
       inst.reflections = data.reflections || [];
+      // Restore personal info and profile photo to localStorage and UI
+      try {
+        if (data.personalInfo) localStorage.setItem('personalInfo', JSON.stringify(data.personalInfo));
+        if (data.profilePhoto) localStorage.setItem('profilePhoto', data.profilePhoto);
+      } catch (e) { console.warn('Failed to persist personal info from Drive', e); }
+      if (typeof inst.loadPersonalInfo === 'function') inst.loadPersonalInfo();
       if (typeof inst.renderAchievements === 'function') inst.renderAchievements();
       if (typeof inst.renderReflections === 'function') inst.renderReflections();
       if (typeof inst.updateLinkedAchievements === 'function') inst.updateLinkedAchievements();
