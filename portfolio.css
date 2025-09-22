@@ -67,6 +67,16 @@
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: hsl(var(--background));
+/* Truncate long labels in pills and show ellipsis */
+.category-bar-wrapper .descriptive-category span {
+  display: inline-block;
+  max-width: 7.5rem; /* allow a modest width before truncating */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
   color: hsl(var(--foreground));
   line-height: 1.6;
   font-size: 14px;
@@ -156,6 +166,14 @@ body {
   margin-bottom: 2rem;
   flex-wrap: wrap;
   gap: 1rem;
+}
+
+/* Sticky category bar: when descriptive section active, keep the bar visible under header */
+#descriptive .category-bar-wrapper {
+  position: sticky;
+  top: 72px; /* header height + small gap */
+  z-index: 90;
+  background: hsl(210 90% 97%);
 }
 
 .section-header h2 {
@@ -284,6 +302,72 @@ body {
 }
 
 .profile-image-container {
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.avatar {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 4px solid hsl(var(--primary) / 0.12);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, hsl(var(--muted) / 0.6), hsl(var(--card)));
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+}
+
+.avatar-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: hsl(var(--primary-foreground));
+  font-weight: 700;
+  font-size: 2rem;
+}
+
+.profile-info {
+  flex: 1;
+  min-width: 260px;
+}
+
+.form-group label { color: hsl(var(--foreground)); font-weight:600; }
+
+/* CMS Attendance quick link - small modern pill style */
+.cms-attendance {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.45rem 0.65rem;
+  background: linear-gradient(180deg, hsl(var(--accent) / 0.08), transparent);
+  border: 1px solid hsla(210,8%,60%,0.12);
+  border-radius: 999px;
+  color: hsl(var(--accent-foreground));
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.cms-attendance svg { color: hsl(var(--accent-foreground)); }
+.cms-attendance:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(30,40,60,0.06); }
+.form-group span { display:block; padding:0.4rem 0; color: hsl(var(--muted-foreground)); }
+
+.edit-controls { gap: 0.5rem; }
+
+/* make save and cancel visible when editing via JS toggles - 'hidden' class exists */
+
+.profile-image-container {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -330,6 +414,7 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
   margin-bottom: 1rem;
+  align-items: center; /* ensure vertical alignment for rows with inline links */
 }
 
 .form-group {
@@ -545,11 +630,179 @@ body {
   cursor: pointer;
 }
 
+/* Full-width Category Bar (Descriptive Portfolio) */
+.category-bar-wrapper {
+  /* Fit within the page width but visually span edge-to-edge without causing horizontal scroll */
+  width: 100%;
+  max-width: 1200px;
+  margin: 0.5rem auto 1rem;
+  background: hsl(210 90% 97%);
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) * 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  padding: 0; /* remove extra wrapper padding so bar is slimmer */
+}
+
+.category-bar-wrapper .descriptive-category {
+  /* Prefer a narrower width per pill so more categories fit across the bar */
+  flex: 1 1 120px; /* preferred basis 120px, will shrink/grow as needed */
+  min-width: 80px;
+  max-width: 220px;
+  text-align: center;
+  /* Reduced vertical padding to make the bar shorter */
+  padding: 0.55rem 0.4rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  transition: var(--transition-smooth);
+  position: relative;
+  letter-spacing: 0.02em;
+}
+
+.category-bar-wrapper .descriptive-category:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 20%;
+  height: 60%;
+  width: 1px;
+  background: hsl(var(--border));
+  opacity: 0.9;
+}
+
+.category-bar-wrapper .descriptive-category:hover {
+  background: hsl(210 95% 94%);
+  color: hsl(var(--foreground));
+}
+
+.category-bar-wrapper .descriptive-category.active {
+  /* Active category is slightly stronger blue to stand out */
+  background: linear-gradient(90deg, hsl(210 85% 65%), hsl(210 85% 55%));
+  color: hsl(var(--primary-foreground));
+  box-shadow: 0 3px 8px -6px hsl(210 85% 45% / 0.5) inset;
+}
+
+/* Icon inside category pill */
+.category-icon {
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.5rem;
+  stroke-width: 1.8;
+  display: inline-block;
+  vertical-align: middle;
+}
+.descriptive-category span { vertical-align: middle; }
+
+@media (max-width: 768px) {
+  .category-bar-wrapper {
+    display: grid;
+    grid-template-columns: 1fr; /* stack by default */
+    gap: 0.5rem;
+    padding: 0.5rem;
+    width: 100%;
+  }
+  .category-bar-wrapper .descriptive-category:not(:last-child)::after { content: none; }
+}
+
+/* Mobile-only select: hidden on larger screens */
+.mobile-descriptive-select {
+  display: none;
+}
+
+@media (max-width: 520px) {
+  /* On small/mobile screens show a compact UI: keep only the 'All' pill visible and show a select for other categories */
+  .category-bar-wrapper {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+  /* Hide all pills except the first (All) to keep UI compact */
+  .category-bar-wrapper .descriptive-category { display: none; }
+  .category-bar-wrapper .descriptive-category:first-child { display: inline-flex; align-items: center; }
+
+  .mobile-descriptive-select {
+    display: inline-block;
+    margin-left: 0.5rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: calc(var(--radius) * 0.6);
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--card));
+    color: hsl(var(--foreground));
+    font-weight: 600;
+  }
+}
+
+/* Very small screens: icon-only compact mode and horizontal scroll fallback */
+@media (max-width: 420px) {
+  .category-bar-wrapper {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.35rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .category-bar-wrapper .descriptive-category {
+    flex: 0 0 auto;
+    padding: 0.45rem 0.5rem;
+    min-width: 3rem;
+  }
+  /* Only show icons (hide labels) in icon-only compact mode */
+  .category-bar-wrapper .descriptive-category span { display: none; }
+  .category-bar-wrapper .descriptive-category .category-icon { margin-right: 0; }
+}
+
+/* Mobile select active styling: match pill active color */
+.mobile-descriptive-select.active {
+  background: linear-gradient(90deg, hsl(210 85% 65%), hsl(210 85% 55%));
+  color: hsl(var(--primary-foreground));
+  border-color: hsl(var(--primary));
+}
 /* Achievements Grid */
 .achievements-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1.5rem;
+}
+
+/* Category summary cards layout */
+#category-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+.cat-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 20px rgba(16,24,40,0.06);
+  text-align: center;
+}
+.cat-icon svg { width:44px; height:44px; stroke-width:1.2; }
+.cat-count { font-size:28px; font-weight:700; margin-top:10px; color:#111; }
+.cat-label { font-size:14px; color:#556; margin-top:6px; }
+
+/* Color variants for icons */
+.cat-card[data-key="academic"] .cat-icon svg { stroke:#2b8aef; fill:#eaf4ff; }
+.cat-card[data-key="clinical"] .cat-icon svg { stroke:#10b981; fill:#ecfdf5; }
+.cat-card[data-key="extracurricular"] .cat-icon svg { stroke:#f97316; fill:#fff7ed; }
+.cat-card[data-key="research"] .cat-icon svg { stroke:#8b5cf6; fill:#f3e8ff; }
+
+/* Mobile: stack vertically */
+@media (max-width: 640px) {
+  #category-cards { grid-template-columns: 1fr; }
+  .cat-card { flex-direction: row; align-items: center; gap:12px; padding:12px; }
+  .cat-count { font-size:22px; }
+  .cat-icon svg { width:40px; height:40px; }
 }
 
 .achievement-card {
@@ -596,6 +849,11 @@ body {
 .achievement-category.research {
   background: hsl(280 85% 45% / 0.1);
   color: hsl(280 85% 45%);
+}
+
+.achievement-category.extracurricular {
+  background: hsl(24 96% 52% / 0.1);
+  color: hsl(24 96% 52%);
 }
 
 .achievement-category.certification {
