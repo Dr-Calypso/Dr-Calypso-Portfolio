@@ -428,13 +428,13 @@ class PortfolioApp {
     document.querySelectorAll('.nav-item').forEach(item => {
       item.classList.remove('active');
     });
-    document.querySelector(`[data-section="${sectionName}"]`).classList.add('active');
+      runIfPresent(`[data-section="${sectionName}"]`, (el) => el.classList.add('active'));
 
     // Update sections
     document.querySelectorAll('.section').forEach(section => {
       section.classList.remove('active');
     });
-    document.getElementById(sectionName).classList.add('active');
+      runIfPresent(`#${sectionName}`, (el) => el.classList.add('active'));
 
     this.currentSection = sectionName;
 
@@ -451,10 +451,10 @@ class PortfolioApp {
   toggleEditPersonal(editing) {
     this.isEditing = editing;
     // Toggle edit controls
-    document.getElementById('edit-personal').classList.toggle('hidden', editing);
-    document.getElementById('save-personal').classList.toggle('hidden', !editing);
-    document.getElementById('cancel-personal').classList.toggle('hidden', !editing);
-    document.getElementById('change-photo').classList.toggle('hidden', !editing);
+    runIfPresent('#edit-personal', (el) => el.classList.toggle('hidden', editing));
+    runIfPresent('#save-personal', (el) => el.classList.toggle('hidden', !editing));
+    runIfPresent('#cancel-personal', (el) => el.classList.toggle('hidden', !editing));
+    runIfPresent('#change-photo', (el) => el.classList.toggle('hidden', !editing));
 
     // Toggle display spans and input fields
     const fields = [
