@@ -402,19 +402,28 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="portfolio.js?v=20250923.1"></script>
     <script>
-        // Debug helper: list all CSS and JS href/src and attempt to fetch the repo JSON
+        // Debug helper: list CSS/JS hrefs and explicitly report whether the expected files loaded
         (async function(){
             try{
                 const cssLinks = Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(l=>l.href);
                 const scriptSrcs = Array.from(document.querySelectorAll('script[src]')).map(s=>s.src);
                 const stamp = document.getElementById('build-version');
+
+                const portfolioCssHref = cssLinks.find(h=>h && h.includes('portfolio.css')) || null;
+                const portfolioJsHref = scriptSrcs.find(s=>s && s.includes('portfolio.js')) || null;
+
                 if (stamp) {
-                    const cssLabel = cssLinks.length ? cssLinks.join(' | ') : 'none';
-                    const jsLabel = scriptSrcs.length ? scriptSrcs.join(' | ') : 'none';
-                    stamp.textContent = `${stamp.textContent} | CSS: ${cssLabel} | JS: ${jsLabel}`;
+                    // Keep the visible stamp short and user-friendly; send full details to console
+                    const cssStatus = portfolioCssHref ? 'OK' : 'MISSING';
+                    const jsStatus = portfolioJsHref ? 'OK' : 'MISSING';
+                    stamp.textContent = `${stamp.textContent} | CSS: ${cssStatus} | JS: ${jsStatus}`;
                 }
+
+                // Full debug details remain in console for developers
                 console.log('Debug: Loaded CSS links:', cssLinks);
                 console.log('Debug: Loaded script sources:', scriptSrcs);
+                console.log('Debug: portfolio.css presence (full href):', portfolioCssHref);
+                console.log('Debug: portfolio.js presence (full src):', portfolioJsHref);
 
                 // Try fetching the repo JSON used by the app loader so you can verify GitHub Pages serves the updated file
                 try {
