@@ -402,16 +402,39 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="portfolio.js?v=20250923.1"></script>
     <script>
-        // Debug helper: show which CSS/JS URLs the browser loaded for quick verification
-        (function(){
+        // Debug helper: list all CSS and JS href/src and attempt to fetch the repo JSON
+        (async function(){
             try{
-                const css = Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(l=>l.href).join('\n');
-                const scripts = Array.from(document.querySelectorAll('script[src]')).map(s=>s.src).join('\n');
+                const cssLinks = Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(l=>l.href);
+                const scriptSrcs = Array.from(document.querySelectorAll('script[src]')).map(s=>s.src);
                 const stamp = document.getElementById('build-version');
-                if (stamp) stamp.textContent = stamp.textContent + ' | CSS: ' + (css.split('/').pop()||'') + ' | JS: ' + (scripts.split('/').pop()||'');
-                console.log('Loaded CSS:', css);
-                console.log('Loaded scripts:', scripts);
-            }catch(e){console.warn('debug helper failed', e);} 
+                if (stamp) {
+                    const cssLabel = cssLinks.length ? cssLinks.join(' | ') : 'none';
+                    const jsLabel = scriptSrcs.length ? scriptSrcs.join(' | ') : 'none';
+                    stamp.textContent = `${stamp.textContent} | CSS: ${cssLabel} | JS: ${jsLabel}`;
+                }
+                console.log('Debug: Loaded CSS links:', cssLinks);
+                console.log('Debug: Loaded script sources:', scriptSrcs);
+
+                // Try fetching the repo JSON used by the app loader so you can verify GitHub Pages serves the updated file
+                try {
+                    const resp = await fetch('./portfolio-data.json', { cache: 'no-store' });
+                    console.log('Debug: fetch ./portfolio-data.json status=', resp.status);
+                    if (resp.ok) {
+                        const text = await resp.text();
+                        console.log('Debug: portfolio-data.json preview (first 1000 chars):\n', text.slice(0,1000));
+                        if (stamp) stamp.textContent += ` | repo JSON: OK (${text.length} bytes)`;
+                    } else {
+                        if (stamp) stamp.textContent += ` | repo JSON: HTTP ${resp.status}`;
+                    }
+                } catch (e) {
+                    console.warn('Debug: failed to fetch portfolio-data.json', e);
+                    if (stamp) stamp.textContent += ' | repo JSON: fetch-failed';
+                }
+
+            } catch (e) {
+                console.warn('debug helper failed', e);
+            }
         })();
     </script>
 <!-- Auth status UI for GIS -->
