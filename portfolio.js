@@ -1,5 +1,29 @@
 // Portfolio JavaScript - Vanilla JS Implementation
 
+// Safe DOM query helpers: use these to avoid throwing when elements are missing
+// $safe(selector, ctx) -> Element | null
+// runIfPresent(selector, fn, ctx) -> void  (calls fn(el) only when element exists)
+function $safe(selector, ctx = document) {
+  try {
+    const el = ctx.querySelector(selector);
+    if (!el) console.warn(`[safe-query] Element not found for selector: "${selector}". Skipping related render logic.`);
+    return el;
+  } catch (err) {
+    console.warn(`[safe-query] Query failed for selector: "${selector}":`, err);
+    return null;
+  }
+}
+
+function runIfPresent(selector, fn, ctx = document) {
+  const el = $safe(selector, ctx);
+  if (!el) return;
+  try {
+    fn(el);
+  } catch (err) {
+    console.error(`[safe-run] Error while executing render for "${selector}":`, err);
+  }
+}
+
 class PortfolioApp {
   constructor() {
     this.currentSection = 'personal';
@@ -18,6 +42,8 @@ class PortfolioApp {
     this.showSection('personal');
     // Load personal info from localStorage if present
     this.loadPersonalInfo();
+    // Attempt to initialize Google Drive client if client id/key provided
+    try { this.initGoogleDriveClient(); } catch (e) { console.warn('Google Drive client init skipped', e); }
   }
 
   loadPersonalInfo() {
@@ -51,9 +77,9 @@ class PortfolioApp {
 
   bindEvents() {
     // Navigation
-    document.querySelectorAll('.nav-item').forEach(item => {
+    document.querySelectorAll('.nav-item[data-section]').forEach(item => {
       item.addEventListener('click', (e) => {
-        const section = e.target.dataset.section;
+        const section = e.currentTarget.dataset.section;
         this.showSection(section);
       });
     });
@@ -82,6 +108,20 @@ class PortfolioApp {
       });
     }
 
+    // Mobile select change should also filter achievements
+    const mobileSelect = document.getElementById('mobile-descriptive-select');
+    if (mobileSelect) {
+      mobileSelect.addEventListener('change', (e) => {
+        const cat = e.target.value || '';
+        // update pills active state
+        document.querySelectorAll('.descriptive-category').forEach(b => b.classList.remove('active'));
+        const matching = document.querySelector(`.descriptive-category[data-category="${cat}"]`);
+        if (matching) matching.classList.add('active');
+        const searchVal = document.getElementById('search-descriptive')?.value || '';
+        this.filterAchievements(searchVal, cat);
+      });
+    }
+
     const searchRef = document.getElementById('search-reflective');
     if (searchRef) {
       let t2 = null;
@@ -94,14 +134,26 @@ class PortfolioApp {
       });
     }
 
+    // Reflective mood filter: update on change
+    const moodSelect = document.getElementById('filter-reflective');
+    if (moodSelect) {
+      moodSelect.addEventListener('change', (e) => {
+        const q = document.getElementById('search-reflective')?.value || '';
+        this.filterReflections(q, e.target.value || '');
+      });
+    }
+
     // Export to PDF button (non-invasive): uses html2canvas + jsPDF
     const exportBtn = document.getElementById('export-pdf');
     if (exportBtn) exportBtn.addEventListener('click', (e) => { e.preventDefault(); this.exportToPdf(); });
 
-    // Personal Info Edit Controls
-    document.getElementById('edit-personal').addEventListener('click', () => this.toggleEditPersonal(true));
-    document.getElementById('save-personal').addEventListener('click', () => this.savePersonal());
-    document.getElementById('cancel-personal').addEventListener('click', () => this.toggleEditPersonal(false));
+  // Personal Info Edit Controls (guarded to avoid throwing if elements are missing)
+  const editPersonalBtn = document.getElementById('edit-personal');
+  if (editPersonalBtn) editPersonalBtn.addEventListener('click', () => this.toggleEditPersonal(true));
+  const savePersonalBtn = document.getElementById('save-personal');
+  if (savePersonalBtn) savePersonalBtn.addEventListener('click', () => this.savePersonal());
+  const cancelPersonalBtn = document.getElementById('cancel-personal');
+  if (cancelPersonalBtn) cancelPersonalBtn.addEventListener('click', () => this.toggleEditPersonal(false));
     // Change photo wiring: open hidden file input
     const changePhotoBtn = document.getElementById('change-photo');
     const photoInput = document.getElementById('profile-photo-input');
@@ -136,6 +188,73 @@ class PortfolioApp {
         });
       });
     }
+
+    // ------------------------------------------------------------------
+    // Delegated/fallback listeners: in some environments the DOM may be
+    // re-rendered or an earlier error prevented the direct bindings above
+    // from attaching. Attach delegated listeners on document.body so mobile
+    // select, descriptive pills and search inputs still work reliably.
+    // ------------------------------------------------------------------
+    document.body.addEventListener('click', (e) => {
+      const pill = e.target.closest && e.target.closest('.descriptive-category');
+      if (pill) {
+        try {
+          // behave like the per-element handler: set active, sync mobile select, filter
+          document.querySelectorAll('.descriptive-category').forEach(b => b.classList.remove('active'));
+          pill.classList.add('active');
+          pill.setAttribute('aria-pressed', 'true');
+          const cat = pill.dataset.category || '';
+          const mobile = document.getElementById('mobile-descriptive-select'); if (mobile) mobile.value = cat;
+          const searchVal = document.getElementById('search-descriptive')?.value || '';
+          console.debug('delegated: descriptive pill clicked', { cat, searchVal });
+          this.filterAchievements(searchVal, cat);
+        } catch (err) { /* swallow to avoid breaking other handlers */ }
+      }
+    });
+
+    // Delegated change for mobile select and reflective mood select
+    document.body.addEventListener('change', (e) => {
+      const tgt = e.target;
+      if (!tgt) return;
+      if (tgt.id === 'mobile-descriptive-select') {
+        const cat = tgt.value || '';
+        document.querySelectorAll('.descriptive-category').forEach(b => b.classList.remove('active'));
+        const matching = document.querySelector(`.descriptive-category[data-category="${cat}"]`);
+        if (matching) matching.classList.add('active');
+        const searchVal = document.getElementById('search-descriptive')?.value || '';
+        console.debug('delegated: mobile select changed', { cat, searchVal });
+        this.filterAchievements(searchVal, cat);
+        return;
+      }
+      if (tgt.id === 'filter-reflective') {
+        const q = document.getElementById('search-reflective')?.value || '';
+        console.debug('delegated: reflective mood changed', { mood: tgt.value, q });
+        this.filterReflections(q, tgt.value || '');
+        return;
+      }
+    });
+
+    // Delegated input for search boxes (debounced)
+    let _debounceSearch = null;
+    document.body.addEventListener('input', (e) => {
+      const tgt = e.target;
+      if (!tgt) return;
+      if (tgt.id === 'search-descriptive') {
+        clearTimeout(_debounceSearch);
+        _debounceSearch = setTimeout(() => {
+          const cat = this.getActiveDescriptiveCategory() || (document.getElementById('mobile-descriptive-select')?.value || '');
+          console.debug('delegated: search-descriptive input', { q: tgt.value, cat });
+          this.filterAchievements(tgt.value || '', cat);
+        }, 180);
+      } else if (tgt.id === 'search-reflective') {
+        clearTimeout(_debounceSearch);
+        _debounceSearch = setTimeout(() => {
+          const mood = document.getElementById('filter-reflective')?.value || '';
+          console.debug('delegated: search-reflective input', { q: tgt.value, mood });
+          this.filterReflections(tgt.value || '', mood);
+        }, 180);
+      }
+    });
 
   }
 
@@ -177,6 +296,92 @@ class PortfolioApp {
     });
 
     }
+
+  // Convert a data URL (base64) into a Blob
+  dataURLToBlob(dataURL) {
+    if (!dataURL || typeof dataURL !== 'string') return null;
+    try {
+      const parts = dataURL.split(',');
+      const meta = parts[0] || '';
+      const b64 = parts[1] || '';
+      const m = meta.match(/data:([^;]+);base64/);
+      const mime = m ? m[1] : 'application/octet-stream';
+      const binary = atob(b64);
+      const len = binary.length;
+      const u8 = new Uint8Array(len);
+      for (let i = 0; i < len; i++) u8[i] = binary.charCodeAt(i);
+      return new Blob([u8], { type: mime });
+    } catch (err) {
+      console.warn('dataURLToBlob failed', err);
+      return null;
+    }
+  }
+
+  // Create or return a usable URL for an attachment object/value.
+  // attachment may be:
+  // - a string: data: URI, http(s) URL, blob: URL, or raw base64
+  // - a Blob
+  // - an ArrayBuffer or TypedArray
+  // - an object with { name, type, data }
+  getAttachmentUrl(key, attachment) {
+    if (!attachment) return null;
+    if (!this._attachmentUrls) this._attachmentUrls = {};
+    // If attachment is an object with a data property, use that
+    let data = attachment && typeof attachment === 'object' && 'data' in attachment ? attachment.data : attachment;
+    let filename = attachment && typeof attachment === 'object' && attachment.name ? attachment.name : null;
+    let type = attachment && typeof attachment === 'object' && attachment.type ? attachment.type : '';
+
+    // If it's already a usable URL
+    if (typeof data === 'string') {
+      const s = data.trim();
+      if (s.startsWith('http://') || s.startsWith('https://') || s.startsWith('blob:')) {
+        return s;
+      }
+      if (s.startsWith('data:')) {
+        const blob = this.dataURLToBlob(s);
+        if (!blob) return null;
+        try { if (this._attachmentUrls[key]) URL.revokeObjectURL(this._attachmentUrls[key]); } catch (e) {}
+        const url = URL.createObjectURL(blob);
+        this._attachmentUrls[key] = url;
+        return url;
+      }
+      // If it's probably a bare base64 string (no prefix), try to convert
+      const base64Regex = /^[A-Za-z0-9+/=\s]+$/;
+      if (base64Regex.test(s)) {
+        const mime = type || 'application/octet-stream';
+        const dataURL = `data:${mime};base64,${s.replace(/\s+/g,'')}`;
+        const blob = this.dataURLToBlob(dataURL);
+        if (!blob) return null;
+        try { if (this._attachmentUrls[key]) URL.revokeObjectURL(this._attachmentUrls[key]); } catch (e) {}
+        const url = URL.createObjectURL(blob);
+        this._attachmentUrls[key] = url;
+        return url;
+      }
+      // Unknown string form - return as-is (may still work)
+      return s;
+    }
+
+    // Blob
+    if (typeof Blob !== 'undefined' && data instanceof Blob) {
+      try { if (this._attachmentUrls[key]) URL.revokeObjectURL(this._attachmentUrls[key]); } catch (e) {}
+      const url = URL.createObjectURL(data);
+      this._attachmentUrls[key] = url;
+      return url;
+    }
+
+    // ArrayBuffer or TypedArray
+    if (data && (data instanceof ArrayBuffer || ArrayBuffer.isView(data))) {
+      const buf = data instanceof ArrayBuffer ? data : data.buffer;
+      const blob = new Blob([buf], { type: type || 'application/octet-stream' });
+      try { if (this._attachmentUrls[key]) URL.revokeObjectURL(this._attachmentUrls[key]); } catch (e) {}
+      const url = URL.createObjectURL(blob);
+      this._attachmentUrls[key] = url;
+      return url;
+    }
+
+    // Fallback: try JSON/stringify and then base64? unlikely — return null
+    return null;
+  }
 
     // Normalize/upgrade loaded JSON data (handles legacy shapes)
     normalizeLoadedData(raw) {
@@ -436,7 +641,7 @@ class PortfolioApp {
     }
 
   container.innerHTML = this.achievements.map(achievement => {
-      let fileHtml = '';
+  let fileHtml = '';
       // Images may be an array
       if (Array.isArray(achievement.images) && achievement.images.length) {
         fileHtml += `<div class="achievement-images" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">`;
@@ -447,13 +652,9 @@ class PortfolioApp {
       } else if (achievement.image && achievement.image.data) {
         fileHtml += `<div><img src="${achievement.image.data}" alt="Achievement Image" style="max-width:100%;max-height:200px;margin-bottom:8px;"></div>`;
       }
-      if (achievement.pdf && achievement.pdf.data) {
-        fileHtml += `<div><a href="${achievement.pdf.data}" target="_blank" rel="noopener" class="btn btn-outline btn-sm">View PDF</a></div>`;
-      }
-      if (achievement.ppt && achievement.ppt.data) {
-        // Office Online viewer link
-        const officeUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(achievement.ppt.data)}`;
-        fileHtml += `<div><a href="${officeUrl}" target="_blank" rel="noopener" class="btn btn-outline btn-sm">View PPT (Office Online)</a></div>`;
+      // Placeholder container for attachments — we'll create blob URLs after injecting HTML
+      if ((achievement.pdf && achievement.pdf.data) || (achievement.ppt && achievement.ppt.data)) {
+        fileHtml += `<div class="achievement-files" data-attach-id="${achievement.id}"></div>`;
       }
   return `
   <div class="achievement-card" data-category="${(achievement.category||'').toLowerCase()}">
@@ -484,6 +685,148 @@ class PortfolioApp {
       </div>
       `;
     }).join('');
+
+    // Revoke any previously created blob URLs to avoid leaks
+    try {
+      if (!this._attachmentUrls) this._attachmentUrls = {};
+      Object.keys(this._attachmentUrls).forEach(k => {
+        try { URL.revokeObjectURL(this._attachmentUrls[k]); } catch (e) {}
+      });
+      this._attachmentUrls = {};
+    } catch (e) { /* ignore */ }
+
+    // Convert data URLs to blob URLs and insert real links for attachments
+    this.achievements.forEach(achievement => {
+      const attachContainer = container.querySelector(`.achievement-files[data-attach-id="${achievement.id}"]`);
+      if (!attachContainer) return;
+      try {
+        // Create a consistent attachment row with: filename label, Open action, and a download-icon
+        const makeAttachmentRow = (att, typeKey) => {
+          const url = this.getAttachmentUrl(`${achievement.id}-${typeKey}`, att);
+          if (!url) return;
+          const filename = att && att.name ? att.name : (typeKey === 'pdf' ? `achievement-${achievement.id}.pdf` : `achievement-${achievement.id}.ppt`);
+
+          const row = document.createElement('div');
+          row.className = 'attachment-item';
+
+          // Decide open URL: for PPT files, prefer Office Online viewer if URL is publicly addressable
+          let openUrl = url;
+          if (typeKey === 'ppt') {
+            try {
+              if (typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'))) {
+                openUrl = 'https://view.officeapps.live.com/op/view.aspx?src=' + encodeURIComponent(url);
+              } else {
+                // blob: or data: URLs are not accessible to Office Online — open directly
+                openUrl = url;
+              }
+            } catch (e) { openUrl = url; }
+          }
+
+          // Make the filename itself the clickable open link (styled as a prominent control)
+          const nameLink = document.createElement('a');
+          nameLink.className = 'attachment-name attach-open';
+          nameLink.href = openUrl; nameLink.target = '_blank'; nameLink.rel = 'noopener';
+          nameLink.textContent = filename;
+          // Accessibility: allow keyboard focus styling
+          nameLink.setAttribute('role', 'button');
+          row.appendChild(nameLink);
+
+          // If this is a PPT and the openUrl is not an http(s) URL, try to upload to Drive
+          // and open via Office Online viewer. This requires Drive integration (gapi) and auth.
+          if (typeKey === 'ppt') {
+            const isHttp = (typeof openUrl === 'string' && (openUrl.startsWith('http://') || openUrl.startsWith('https://')));
+            if (!isHttp) {
+              // Prevent default navigation — we'll handle click
+              nameLink.addEventListener('click', async (ev) => {
+                ev.preventDefault(); ev.stopPropagation();
+                try {
+                  // Resolve the attachment data to a Blob if necessary
+                  let blob = null;
+                  // If att.data is a data: URI string, convert via dataURLToBlob
+                  const raw = att && (att.data || att);
+                  if (typeof raw === 'string' && raw.startsWith('data:')) {
+                    blob = this.dataURLToBlob(raw);
+                  } else if (typeof Blob !== 'undefined' && raw instanceof Blob) {
+                    blob = raw;
+                  } else if (raw && (raw instanceof ArrayBuffer || ArrayBuffer.isView(raw))) {
+                    const buf = raw instanceof ArrayBuffer ? raw : raw.buffer;
+                    blob = new Blob([buf], { type: att.type || 'application/vnd.ms-powerpoint' });
+                  }
+
+                  if (!blob) {
+                    this.showToast('Cannot prepare PPT for Office preview locally', 'error');
+                    // fallback: open the existing URL (may download)
+                    window.open(openUrl, '_blank', 'noopener');
+                    return;
+                  }
+
+                  // Try Drive upload if available, otherwise attempt anonymous public upload services.
+                  // Use defensive checks to avoid reading a null token object.
+                  const tokenObj = (typeof gapi !== 'undefined' && gapi && gapi.client && typeof gapi.client.getToken === 'function') ? gapi.client.getToken() : null;
+                  let publicUrl = null;
+                  if (tokenObj && tokenObj.access_token) {
+                    try {
+                      this.showToast('Uploading file to Drive for Office preview...', 'info');
+                      publicUrl = await this._uploadBlobToDriveAndShare(blob, filename, att.type || 'application/vnd.ms-powerpoint');
+                    } catch (e) {
+                      console.warn('Drive upload attempt failed, will try anonymous upload', e);
+                      publicUrl = null;
+                    }
+                  }
+
+                  // If Drive didn't produce a public URL, try anonymous hosts (may expire or fail due to CORS)
+                  if (!publicUrl) {
+                    try {
+                      this.showToast('Attempting anonymous upload for Office preview...', 'info');
+                      publicUrl = await this._uploadBlobToAnonymousHost(blob, filename, att.type || 'application/vnd.ms-powerpoint');
+                    } catch (e) {
+                      console.warn('Anonymous upload failed', e);
+                      publicUrl = null;
+                    }
+                  }
+
+                  if (publicUrl) {
+                    // Open a helper tab that lets the user add the file to OneDrive (if they sign in)
+                    // and view it in Office Online. This provides a smoother flow than directly opening
+                    // the viewer (which may prompt to sign in) and gives an explicit option to save.
+                    this._openOfficeHelperTab(publicUrl, filename);
+                    this.showToast('Opened Office helper tab', 'success');
+                    return;
+                  }
+
+                  // Final fallback: open the blob URL locally (will typically download)
+                  this.showToast('Unable to upload for Office preview — opening locally', 'info');
+                  const bUrl = URL.createObjectURL(blob);
+                  window.open(bUrl, '_blank', 'noopener');
+                  // Revoke after a short delay
+                  setTimeout(() => { try { URL.revokeObjectURL(bUrl); } catch (e) {} }, 60_000);
+                  return;
+                } catch (err) {
+                  console.error('Office preview upload failed', err);
+                  this.showToast('Unable to open PPT in Office Online: ' + (err && err.message ? err.message : ''), 'error');
+                }
+              });
+            }
+          }
+
+          // Download icon (keeps existing download behavior)
+          const dl = document.createElement('a');
+          dl.href = url; dl.download = filename; dl.className = 'attach-download'; dl.title = 'Download ' + filename; dl.rel = 'noopener';
+          dl.innerHTML = `
+            <svg class="icon icon-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" width="18" height="18">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>`;
+          row.appendChild(dl);
+
+          attachContainer.appendChild(row);
+        };
+
+        if (achievement.pdf) makeAttachmentRow(achievement.pdf, 'pdf');
+        if (achievement.ppt) makeAttachmentRow(achievement.ppt, 'ppt');
+      } catch (e) { console.warn('attachment processing failed for achievement', achievement.id, e); }
+    });
 
     // Update category cards counts after rendering
     if (typeof this.updateCategoryCards === 'function') this.updateCategoryCards();
@@ -718,12 +1061,9 @@ class PortfolioApp {
       } else if (reflection.image && reflection.image.data) {
         fileHtml += `<div><img src="${reflection.image.data}" alt="Reflection Image" style="max-width:100%;max-height:200px;margin-bottom:8px;"></div>`;
       }
-      if (reflection.pdf && reflection.pdf.data) {
-        fileHtml += `<div><a href="${reflection.pdf.data}" target="_blank" rel="noopener" class="btn btn-outline btn-sm">View PDF</a></div>`;
-      }
-      if (reflection.ppt && reflection.ppt.data) {
-        const officeUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(reflection.ppt.data)}`;
-        fileHtml += `<div><a href="${officeUrl}" target="_blank" rel="noopener" class="btn btn-outline btn-sm">View PPT (Office Online)</a></div>`;
+      // Placeholder container for attachments — we'll create blob URLs after injecting HTML
+      if ((reflection.pdf && reflection.pdf.data) || (reflection.ppt && reflection.ppt.data)) {
+        fileHtml += `<div class="reflection-files" data-attach-id="${reflection.id}"></div>`;
       }
       return `
         <div class="reflection-card">
@@ -775,6 +1115,123 @@ class PortfolioApp {
         this.deleteReflection(id);
       });
     });
+
+    // Attach blob-backed links for reflection attachments
+    try {
+      if (!this._attachmentUrls) this._attachmentUrls = {};
+      this.reflections.forEach(reflection => {
+        const attachContainer = container.querySelector(`.reflection-files[data-attach-id="${reflection.id}"]`);
+        if (!attachContainer) return;
+        try {
+          const makeAttachmentRow = (att, typeKey) => {
+            const url = this.getAttachmentUrl(`${reflection.id}-${typeKey}`, att);
+            if (!url) return;
+            const filename = att && att.name ? att.name : (typeKey === 'pdf' ? `reflection-${reflection.id}.pdf` : `reflection-${reflection.id}.ppt`);
+
+            const row = document.createElement('div');
+            row.className = 'attachment-item';
+
+            let openUrl = url;
+            if (typeKey === 'ppt') {
+              try {
+                if (typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'))) {
+                  openUrl = 'https://view.officeapps.live.com/op/view.aspx?src=' + encodeURIComponent(url);
+                } else {
+                  openUrl = url;
+                }
+              } catch (e) { openUrl = url; }
+            }
+
+            const nameLink = document.createElement('a');
+            nameLink.className = 'attachment-name attach-open';
+            nameLink.href = openUrl; nameLink.target = '_blank'; nameLink.rel = 'noopener';
+            nameLink.textContent = filename;
+            nameLink.setAttribute('role', 'button');
+            row.appendChild(nameLink);
+
+            if (typeKey === 'ppt') {
+              const isHttp = (typeof openUrl === 'string' && (openUrl.startsWith('http://') || openUrl.startsWith('https://')));
+              if (!isHttp) {
+                nameLink.addEventListener('click', async (ev) => {
+                  ev.preventDefault(); ev.stopPropagation();
+                  try {
+                    let blob = null;
+                    const raw = att && (att.data || att);
+                    if (typeof raw === 'string' && raw.startsWith('data:')) {
+                      blob = this.dataURLToBlob(raw);
+                    } else if (typeof Blob !== 'undefined' && raw instanceof Blob) {
+                      blob = raw;
+                    } else if (raw && (raw instanceof ArrayBuffer || ArrayBuffer.isView(raw))) {
+                      const buf = raw instanceof ArrayBuffer ? raw : raw.buffer;
+                      blob = new Blob([buf], { type: att.type || 'application/vnd.ms-powerpoint' });
+                    }
+
+                    if (!blob) {
+                      this.showToast('Cannot prepare PPT for Office preview locally', 'error');
+                      window.open(openUrl, '_blank', 'noopener');
+                      return;
+                    }
+
+                    const tokenObj = (typeof gapi !== 'undefined' && gapi && gapi.client && typeof gapi.client.getToken === 'function') ? gapi.client.getToken() : null;
+                    let publicUrl = null;
+                    if (tokenObj && tokenObj.access_token) {
+                      try {
+                        this.showToast('Uploading file to Drive for Office preview...', 'info');
+                        publicUrl = await this._uploadBlobToDriveAndShare(blob, filename, att.type || 'application/vnd.ms-powerpoint');
+                      } catch (e) {
+                        console.warn('Drive upload attempt failed, will try anonymous upload', e);
+                        publicUrl = null;
+                      }
+                    }
+
+                    if (!publicUrl) {
+                      try {
+                        this.showToast('Attempting anonymous upload for Office preview...', 'info');
+                        publicUrl = await this._uploadBlobToAnonymousHost(blob, filename, att.type || 'application/vnd.ms-powerpoint');
+                      } catch (e) {
+                        console.warn('Anonymous upload failed', e);
+                        publicUrl = null;
+                      }
+                    }
+
+                    if (publicUrl) {
+                      const officeViewer = 'https://view.officeapps.live.com/op/view.aspx?src=' + encodeURIComponent(publicUrl);
+                      window.open(officeViewer, '_blank', 'noopener');
+                      this.showToast('Opened in Office Online', 'success');
+                      return;
+                    }
+
+                    this.showToast('Unable to upload for Office preview — opening locally', 'info');
+                    const bUrl = URL.createObjectURL(blob);
+                    window.open(bUrl, '_blank', 'noopener');
+                    setTimeout(() => { try { URL.revokeObjectURL(bUrl); } catch (e) {} }, 60_000);
+                    return;
+                  } catch (err) {
+                    console.error('Office preview upload failed', err);
+                    this.showToast('Unable to open PPT in Office Online: ' + (err && err.message ? err.message : ''), 'error');
+                  }
+                });
+              }
+            }
+
+            const dl = document.createElement('a');
+            dl.href = url; dl.download = filename; dl.className = 'attach-download'; dl.title = 'Download ' + filename; dl.rel = 'noopener';
+            dl.innerHTML = `
+              <svg class="icon icon-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" width="18" height="18">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>`;
+            row.appendChild(dl);
+
+            attachContainer.appendChild(row);
+          };
+
+          if (reflection.pdf) makeAttachmentRow(reflection.pdf, 'pdf');
+          if (reflection.ppt) makeAttachmentRow(reflection.ppt, 'ppt');
+        } catch (e) { console.warn('attachment processing failed for reflection', reflection.id, e); }
+      });
+    } catch (e) { /* ignore */ }
   }
 
   updateLinkedAchievements() {
@@ -1258,6 +1715,175 @@ PortfolioApp.prototype.loadFromDrive = async function() {
   }
 }
 
+// Upload a Blob to Drive and make it shareable (anyone with the link). Returns a public URL.
+PortfolioApp.prototype._uploadBlobToDriveAndShare = async function(blob, filename, mimeType) {
+  try {
+    if (typeof gapi === 'undefined' || !gapi || !gapi.client) throw new Error('Google API not initialized');
+    // Defensive token extraction. If no token, attempt to sign the user in (non-invasive).
+    let tokenObj = null;
+    try { tokenObj = (typeof gapi.client.getToken === 'function') ? gapi.client.getToken() : null; } catch (e) { tokenObj = null; }
+    let accessToken = tokenObj && tokenObj.access_token ? tokenObj.access_token : null;
+    if (!accessToken) {
+      // Attempt to sign in the user interactively using gapi.auth2 if available.
+      try {
+        this.showToast('Please sign in to Google to allow uploading to Drive...', 'info');
+        if (gapi.auth2 && typeof gapi.auth2.getAuthInstance === 'function') {
+          let authInst = gapi.auth2.getAuthInstance();
+          if (!authInst && gapi.auth2.init && window.GOOGLE_CLIENT_ID) {
+            try { authInst = await gapi.auth2.init({ client_id: window.GOOGLE_CLIENT_ID, scope: 'https://www.googleapis.com/auth/drive.file' }); } catch (e) { /* ignore */ }
+          }
+          if (authInst) {
+            const user = await authInst.signIn({ scope: 'https://www.googleapis.com/auth/drive.file' });
+            const authResp = user && user.getAuthResponse ? user.getAuthResponse() : null;
+            accessToken = (authResp && (authResp.access_token || authResp.accessToken)) || null;
+            // Also update gapi.client token if possible
+            try { if (accessToken && gapi.client && gapi.client.setToken) gapi.client.setToken({ access_token: accessToken }); } catch (e) {}
+          }
+        }
+      } catch (e) {
+        console.warn('Interactive Google sign-in failed or was cancelled', e);
+      }
+    }
+    if (!accessToken) throw new Error('Not authenticated');
+
+    // Create multipart request body for simple upload
+    const boundary = '-------314159265358979323846';
+    const delimiter = "\r\n--" + boundary + "\r\n";
+    const close_delim = "\r\n--" + boundary + "--";
+
+    const metadata = {
+      name: filename,
+      mimeType: mimeType || 'application/vnd.ms-powerpoint'
+    };
+
+    const reader = new FileReader();
+    const dataUrl = await new Promise((resolve, reject) => {
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
+    const multipartRequestBody =
+      delimiter +
+      'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+      JSON.stringify(metadata) +
+      delimiter +
+      'Content-Type: ' + mimeType + '\r\n' +
+      'Content-Transfer-Encoding: base64\r\n\r\n' +
+      dataUrl +
+      close_delim;
+
+    // Use fetch to upload via Drive REST endpoint because gapi.client.request with raw multipart can be awkward
+    const uploadResp = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+      method: 'POST',
+      headers: new Headers({ 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'multipart/related; boundary="' + boundary + '"' }),
+      body: multipartRequestBody
+    });
+    if (!uploadResp.ok) throw new Error('Upload failed: ' + uploadResp.status + ' ' + uploadResp.statusText);
+    const fileObj = await uploadResp.json();
+
+    // Set permission to anyone with the link can read
+    const permResp = await fetch(`https://www.googleapis.com/drive/v3/files/${fileObj.id}/permissions`, {
+      method: 'POST',
+      headers: new Headers({ 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ role: 'reader', type: 'anyone' })
+    });
+    if (!permResp.ok) {
+      // Not fatal — viewer may still be able to open depending on link
+      console.warn('Setting permission failed', await permResp.text());
+    }
+
+    // Get file metadata to obtain webViewLink
+    const metaResp = await fetch(`https://www.googleapis.com/drive/v3/files/${fileObj.id}?fields=webViewLink,webContentLink`, {
+      method: 'GET',
+      headers: new Headers({ 'Authorization': 'Bearer ' + accessToken })
+    });
+    if (!metaResp.ok) throw new Error('Failed to fetch file metadata');
+    const meta = await metaResp.json();
+    // Prefer webViewLink if present, otherwise fallback to webContentLink or drive file export URL
+    return meta.webViewLink || meta.webContentLink || `https://www.googleapis.com/drive/v3/files/${fileObj.id}?alt=media`;
+  } catch (e) {
+    console.error('_uploadBlobToDriveAndShare error', e);
+    return null;
+  }
+};
+
+// Upload to anonymous public hosts (best-effort). Returns a public URL or null.
+PortfolioApp.prototype._uploadBlobToAnonymousHost = async function(blob, filename, mimeType) {
+  // We'll attempt a small list of public upload endpoints that return a direct file URL.
+  // Note: these services may impose CORS or rate limits; this helper is best-effort.
+  const attempts = [
+    async () => {
+      // 0x0.st - accepts PUT and returns URL in body
+      try {
+        const resp = await fetch('https://0x0.st', { method: 'POST', body: blob });
+        if (!resp.ok) throw new Error('0x0.st upload failed');
+        const text = await resp.text();
+        const url = text.trim();
+        if (url && (url.startsWith('http://') || url.startsWith('https://'))) return url;
+      } catch (e) { /* ignore */ }
+      return null;
+    },
+    async () => {
+      // file.io - but file.io returns JSON with link; note: file expires
+      try {
+        const form = new FormData();
+        form.append('file', blob, filename);
+        const resp = await fetch('https://file.io/?expires=1w', { method: 'POST', body: form });
+        if (!resp.ok) throw new Error('file.io upload failed');
+        const j = await resp.json();
+        if (j && j.link) return j.link;
+      } catch (e) { /* ignore */ }
+      return null;
+    },
+    async () => {
+      // transfer.sh supports PUT with filename
+      try {
+        const url = 'https://transfer.sh/' + encodeURIComponent(filename || 'file.bin');
+        const resp = await fetch(url, { method: 'PUT', body: blob });
+        if (!resp.ok) throw new Error('transfer.sh upload failed');
+        const text = await resp.text();
+        const link = text.trim();
+        if (link && (link.startsWith('http://') || link.startsWith('https://'))) return link;
+      } catch (e) { /* ignore */ }
+      return null;
+    }
+  ];
+
+  for (const fn of attempts) {
+    try {
+      const res = await fn();
+      if (res) return res;
+    } catch (e) { /* ignore and try next */ }
+  }
+  return null;
+};
+
+// Open an intermediate helper tab that embeds Office Online viewer and offers an explicit
+// 'Add to OneDrive' instruction. This avoids Office's immediate sign-in redirect and
+// gives the user a clear action (and context) if they need to sign in.
+PortfolioApp.prototype._openOfficeHelperTab = function(publicUrl, filename) {
+  try {
+    const w = window.open('', '_blank');
+    if (!w) {
+      this.showToast('Popup blocked — please allow popups for this site', 'error');
+      return;
+    }
+    const safeUrl = encodeURIComponent(publicUrl);
+    const viewerUrl = 'https://view.officeapps.live.com/op/view.aspx?src=' + safeUrl;
+    // Basic HTML that shows filename, a button to open Office viewer, and instructions to save to OneDrive
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Open in Office Online</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:Inter,system-ui,Arial;margin:0;padding:20px;background:#f7fafc;color:#0f172a}header{display:flex;align-items:center;gap:12px}h1{font-size:18px;margin:0}button{background:#2b8aef;color:#fff;border:none;padding:10px 14px;border-radius:8px;cursor:pointer;font-weight:600}a.small{display:inline-block;margin-left:12px;color:#334155}</style></head><body><header><h1>${this._escapeHtml(filename || 'file')}</h1></header><p style="margin-top:16px;color:#334155">Your file is ready. You can open it directly in Office Online or add it to your OneDrive (requires Microsoft sign-in).</p><div style="margin-top:18px"><button id="open">Open in Office Online</button><a class="small" id="onedrive-link" href="#">Add to OneDrive & Open</a></div><iframe id="viewer" src="${viewerUrl}" style="width:100%;height:70vh;border:1px solid #e2e8f0;margin-top:18px;border-radius:8px"></iframe><script>document.getElementById('open').addEventListener('click',function(){window.open('${viewerUrl}','_blank');});document.getElementById('onedrive-link').addEventListener('click',async function(e){e.preventDefault(); try{ const a=document.createElement('a'); a.href='${publicUrl}'; a.download='${filename || 'file'}'; document.body.appendChild(a); a.click(); a.remove(); alert('A download has started. After saving the file to your device, sign in to OneDrive and upload it there to open in PowerPoint Online.'); }catch(err){alert('Failed to trigger download: '+err);}});</script></body></html>`;
+    // Write the helper HTML to the new window
+    w.document.open(); w.document.write(html); w.document.close();
+  } catch (e) {
+    console.error('Failed to open Office helper tab', e);
+    this.showToast('Failed to open helper tab for Office', 'error');
+  }
+};
+
+// Minimal HTML-escape helper
+PortfolioApp.prototype._escapeHtml = function(s) { if (!s) return ''; return String(s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[c]; }); };
+
 // -----------------------------------------------------------------------------
 // Drive Auto-Loader (monitor)
 // -----------------------------------------------------------------------------
@@ -1310,3 +1936,47 @@ PortfolioApp.prototype.loadFromDrive = async function() {
     try { pollTokenAndLoad(); } catch (e) { /* ignore */ }
   });
 })();
+
+// Initialize Google API client for Drive usage (non-invasive). This will load gapi
+// if it exists on the page and initialize the client with the Drive scopes so
+// uploads can use gapi.client.getToken() and related helpers. If your page already
+// sets up Google Sign-In, this will be a no-op.
+PortfolioApp.prototype.initGoogleDriveClient = function() {
+  // Required scopes for Drive upload and permission modification
+  const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.photos.readonly';
+  // Use global keys if provided by the page (optional)
+  const CLIENT_ID = window.GOOGLE_CLIENT_ID || null;
+  const API_KEY = window.GOOGLE_API_KEY || null;
+
+  // If gapi is not available, don't attempt to load it automatically here (page likely already loads it)
+  if (typeof gapi === 'undefined' || !gapi) {
+    console.debug('gapi not present; skipping Drive client init');
+    return;
+  }
+
+  // If already initialized, skip
+  try { if (gapi.client && gapi.client.init && gapi.client._initialized) return; } catch (e) {}
+
+  // Try to init client; note: this won't sign the user in automatically.
+  try {
+    gapi.load('client:auth2', async () => {
+      try {
+        const initObj = { discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'] };
+        if (API_KEY) initObj.apiKey = API_KEY;
+        if (CLIENT_ID) initObj.clientId = CLIENT_ID;
+        await gapi.client.init(initObj);
+        // Also initialize auth2 if available and we have a client id
+        if (CLIENT_ID && gapi.auth2 && !gapi.auth2.getAuthInstance()) {
+          try { await gapi.auth2.init({ client_id: CLIENT_ID, scope: SCOPES }); } catch (e) { /* ignore */ }
+        }
+        // mark initialized so we don't re-init
+        gapi.client._initialized = true;
+        console.debug('gapi.client initialized for Drive (no sign-in performed)');
+      } catch (err) {
+        console.warn('gapi.client.init failed', err);
+      }
+    });
+  } catch (e) {
+    console.warn('gapi.load failed', e);
+  }
+};
