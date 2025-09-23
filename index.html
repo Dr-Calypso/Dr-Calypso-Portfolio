@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Abdul Haseeb Ahmad - Medical Portfolio</title>
     <meta name="description" content="Professional medical portfolio of Abdul Haseeb Ahmad, MBBS student specializing in internal medicine and cardiology.">
-    <link rel="stylesheet" href="portfolio.css">
+    <link rel="stylesheet" href="portfolio.css?v=20250923.1">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
         <script src="https://apis.google.com/js/api.js"></script>
         <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -20,6 +20,8 @@
             <div class="nav-brand">
                 <h1>Medical Portfolio</h1>
                 <p>Abdul Haseeb Ahmad</p>
+                <!-- Build/version stamp to help confirm deployed changes -->
+                <div id="build-version" style="font-size:12px;color:var(--muted-foreground);margin-top:4px;">v2025.09.23-1</div>
             </div>
             <nav class="nav-menu">
                 <button class="nav-item active" data-section="personal">Personal Info</button>
@@ -395,10 +397,23 @@
         </div>
     </div>
 
-    <script src="portfolio.js"></script>
-    <!-- html2canvas and jsPDF for client-side export to PDF -->
+    <!-- html2canvas and jsPDF for client-side export to PDF (load libraries first) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="portfolio.js?v=20250923.1"></script>
+    <script>
+        // Debug helper: show which CSS/JS URLs the browser loaded for quick verification
+        (function(){
+            try{
+                const css = Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(l=>l.href).join('\n');
+                const scripts = Array.from(document.querySelectorAll('script[src]')).map(s=>s.src).join('\n');
+                const stamp = document.getElementById('build-version');
+                if (stamp) stamp.textContent = stamp.textContent + ' | CSS: ' + (css.split('/').pop()||'') + ' | JS: ' + (scripts.split('/').pop()||'');
+                console.log('Loaded CSS:', css);
+                console.log('Loaded scripts:', scripts);
+            }catch(e){console.warn('debug helper failed', e);} 
+        })();
+    </script>
 <!-- Auth status UI for GIS -->
 <div id="auth-status" style="position:fixed;top:10px;right:180px;z-index:9999;background:#fff;padding:6px;border:1px solid #ccc;border-radius:6px;display:none;font-size:13px;"></div>
 <button id="authorize_button" style="display:block;position:fixed;top:10px;right:10px;z-index:9999;">Sign in with Google</button>
