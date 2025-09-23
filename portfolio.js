@@ -391,6 +391,7 @@ class PortfolioApp {
         const out = Object.assign({}, entry);
         // ensure id
         out.id = out.id || (Date.now().toString() + Math.random().toString(36).slice(2,7));
+
         // migrate single `image` to `images` array
         if (out.image && !out.images) {
           out.images = [{ name: out.image.name || 'image', type: out.image.type || 'image/jpeg', data: out.image.data || out.image }];
@@ -398,6 +399,65 @@ class PortfolioApp {
         }
         // ensure images is an array
         if (!Array.isArray(out.images)) out.images = out.images ? [out.images] : [];
+
+        // Backwards/alternate attachment shapes: support an `attachments` array or similar
+        out.attachments = out.attachments || out.files || out.documents || [];
+        if (!Array.isArray(out.attachments)) out.attachments = out.attachments ? [out.attachments] : [];
+
+        // Initialize explicit pdf/ppt fields if present (may be strings or objects)
+        if (out.pdf && typeof out.pdf === 'string') out.pdf = { name: out.pdf.split('/').pop().split('?')[0], type: '', data: out.pdf };
+        if (out.ppt && typeof out.ppt === 'string') out.ppt = { name: out.ppt.split('/').pop().split('?')[0], type: '', data: out.ppt };
+
+        // Ensure pdf/ppt are null if missing
+        out.pdf = out.pdf || null;
+        out.ppt = out.ppt || null;
+
+        // Normalize attachments into images/pdf/ppt when possible
+        try {
+          out.attachments.forEach(att => {
+            if (!att) return;
+            let attObj = att;
+            // If attachment is a bare string, treat it as a URL
+            if (typeof att === 'string') {
+              const name = att.split('/').pop().split('?')[0] || 'file';
+              attObj = { name, type: '', data: att };
+            } else {
+              // If object has `url` property but not `data`, copy it to `data` for consistency
+              if (att.url && !att.data) attObj.data = att.url;
+              if (!attObj.name && attObj.url) attObj.name = attObj.url.split('/').pop().split('?')[0];
+            }
+
+            const t = (attObj.type || '').toLowerCase();
+            const nameLower = (attObj.name || '').toLowerCase();
+
+            // Image types
+            if (t.startsWith('image/') || nameLower.match(/\.(png|jpe?g|gif|webp|bmp)$/)) {
+              out.images = out.images || [];
+              out.images.push({ name: attObj.name || 'image', type: attObj.type || 'image/jpeg', data: attObj.data || attObj.url || attObj });
+              return;
+            }
+
+            // PDF
+            if (t.includes('pdf') || nameLower.endsWith('.pdf')) {
+              if (!out.pdf) out.pdf = { name: attObj.name || 'file.pdf', type: attObj.type || 'application/pdf', data: attObj.data || attObj.url || attObj };
+              return;
+            }
+
+            // PPT / PPTX
+            if (t.includes('powerpoint') || nameLower.endsWith('.ppt') || nameLower.endsWith('.pptx')) {
+              if (!out.ppt) out.ppt = { name: attObj.name || 'file.pptx', type: attObj.type || 'application/vnd.ms-powerpoint', data: attObj.data || attObj.url || attObj };
+              return;
+            }
+
+            // Unknown attachments: keep them in a catch-all array for debugging or future use
+            out._otherAttachments = out._otherAttachments || [];
+            out._otherAttachments.push(attObj);
+          });
+        } catch (e) {
+          // Non-fatal: if attachments processing fails, continue with what we have
+          console.warn('Failed to normalize attachments for entry', out.id, e);
+        }
+
         // ensure required fields exist
         out.title = out.title || '';
         out.category = out.category || '';
