@@ -1213,3 +1213,45 @@ body {
     padding: 1rem;
   }
 }
+
+/* Attachment UI: file row, open button and download icon */
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.attachment-name {
+  flex: 1 1 auto;
+  font-size: 0.98rem;
+  color: hsl(var(--primary));
+  font-weight: 600;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  transition: var(--transition-smooth);
+}
+.attachment-name:hover,
+.attachment-name:focus {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  outline: none;
+  box-shadow: 0 8px 28px rgba(43,138,239,0.14);
+}
+
+.attach-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: hsl(var(--muted-foreground));
+}
+.attach-download:hover { background: hsl(var(--muted)); color: hsl(var(--foreground)); }
+.icon-download { stroke-width: 1.8; }
