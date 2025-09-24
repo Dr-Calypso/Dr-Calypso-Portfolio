@@ -1398,23 +1398,12 @@ class PortfolioApp {
   descHeading.dataset.pdfForcePageBreak = 'before';
   renderRoot.appendChild(descHeading);
 
-        const categories = ['academic','clinical','extracurricular','research'];
         const achContainer = document.getElementById('achievements-container');
         if (achContainer) {
-          for (const cat of categories) {
-            const items = Array.from(achContainer.querySelectorAll('.achievement-card')).filter(c => (c.dataset.category || '').toLowerCase() === cat && c.style.display !== 'none');
-            if (!items || items.length === 0) continue;
-            // category subheading
-            const catWrap = document.createElement('div'); catWrap.style.width = widthPx + 'px'; catWrap.style.margin = '12px 0 6px 0';
-            const catTitle = document.createElement('h2'); catTitle.textContent = cat.charAt(0).toUpperCase() + cat.slice(1); catTitle.style.fontSize = '16px'; catTitle.style.margin = '0 0 8px 0'; catTitle.style.color = '#0f172a'; catTitle.style.fontWeight = '700';
-            const line = document.createElement('div'); line.style.height = '2px'; line.style.background = '#eef2ff'; line.style.marginTop = '6px'; line.style.borderRadius = '4px';
-            catWrap.appendChild(catTitle); catWrap.appendChild(line);
-            renderRoot.appendChild(catWrap);
-
-            // append each item under this category
-            for (const c of items) {
-              try { renderRoot.appendChild(cloneClean(c)); } catch (e) { /* ignore individual clone errors */ }
-            }
+          // Append achievements in their existing DOM order (no category subheadings)
+          const items = Array.from(achContainer.querySelectorAll('.achievement-card')).filter(c => c.style.display !== 'none');
+          for (const c of items) {
+            try { renderRoot.appendChild(cloneClean(c)); } catch (e) { /* ignore individual clone errors */ }
           }
         }
       } catch (e) { console.warn('Failed to clone achievements for PDF', e); }
