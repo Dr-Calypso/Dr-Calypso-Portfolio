@@ -1328,6 +1328,9 @@ class PortfolioApp {
       const margin = 28; // points
       const contentWidth = pageWidth - margin * 2;
       let cursorY = margin;
+  // Track current page (start at 1). We'll increment when we add pages so we can
+  // avoid inserting a blank page before the very first heading.
+  let pageIndex = 1;
 
       // Color map for categories and statuses (approximate)
       const categoryColors = {
@@ -1343,139 +1346,354 @@ class PortfolioApp {
         planned: '#3b82f6'
       };
 
-      // Helper to create a styled card DOM node for an achievement or reflection
-      const createAchievementCardNode = (a) => {
-        const card = document.createElement('div');
-        card.style.boxSizing = 'border-box';
-        card.style.width = '800px';
-        card.style.padding = '14px';
-        card.style.borderRadius = '12px';
-        card.style.background = '#ffffff';
-        card.style.boxShadow = '0 8px 24px rgba(16,24,40,0.06)';
-        card.style.marginBottom = '12px';
-        // Header row with category badge and status
-        const header = document.createElement('div'); header.style.display='flex'; header.style.justifyContent='space-between'; header.style.alignItems='center';
-        const left = document.createElement('div'); left.style.display='flex'; left.style.alignItems='center'; left.style.gap='10px';
-        const cat = document.createElement('div');
-        const catKey = (a.category || '').toLowerCase();
-        const catStyle = categoryColors[catKey] || { bg: '#f3f4f6', color: '#374151' };
-        cat.textContent = (a.category || '').toUpperCase();
-        cat.style.background = catStyle.bg; cat.style.color = catStyle.color; cat.style.fontWeight='700'; cat.style.padding='6px 8px'; cat.style.borderRadius='999px'; cat.style.fontSize='11px';
-        left.appendChild(cat);
-        header.appendChild(left);
-
-        const right = document.createElement('div'); right.style.display='flex'; right.style.alignItems='center'; right.style.gap='8px';
-        const status = document.createElement('div'); status.textContent = (a.status || '').replace('-', ' ');
-        const stColor = statusColors[(a.status||'').toLowerCase()] || '#6b7280';
-        status.style.color = stColor; status.style.border = `1px solid ${stColor}33`; status.style.padding='6px 8px'; status.style.borderRadius='999px'; status.style.fontSize='11px'; status.style.fontWeight='700';
-        right.appendChild(status);
-        header.appendChild(right);
-
-        card.appendChild(header);
-        const title = document.createElement('h3'); title.textContent = a.title || ''; title.style.margin='10px 0 6px 0'; title.style.fontSize='16px'; title.style.color='#0f172a';
-        card.appendChild(title);
-        const meta = document.createElement('div'); meta.textContent = this.formatDate(a.date || new Date().toISOString()); meta.style.fontSize='12px'; meta.style.color='#64748b'; card.appendChild(meta);
-        const desc = document.createElement('p'); desc.textContent = a.description || ''; desc.style.fontSize='13px'; desc.style.color='#475569'; desc.style.marginTop='8px'; desc.style.lineHeight='1.4'; card.appendChild(desc);
-        // images
-        if (Array.isArray(a.images) && a.images.length) {
-          const row = document.createElement('div'); row.style.display='flex'; row.style.gap='8px'; row.style.flexWrap='wrap'; row.style.marginTop='10px';
-          a.images.forEach(img => { if (!img || !img.data) return; const im = document.createElement('img'); im.src = img.data; im.style.width='220px'; im.style.height='140px'; im.style.objectFit='cover'; im.style.borderRadius='8px'; im.style.boxShadow='0 6px 18px rgba(16,24,40,0.06)'; row.appendChild(im); });
-          card.appendChild(row);
-        }
-        return card;
-      };
-
-      const createReflectionCardNode = (r) => {
-        const card = document.createElement('div');
-        card.style.boxSizing = 'border-box';
-        card.style.width = '800px';
-        card.style.padding = '14px';
-        card.style.borderRadius = '12px';
-        card.style.background = '#ffffff';
-        card.style.boxShadow = '0 8px 24px rgba(16,24,40,0.06)';
-        card.style.marginBottom = '12px';
-        const header = document.createElement('div'); header.style.display='flex'; header.style.justifyContent='space-between'; header.style.alignItems='center';
-        const left = document.createElement('div'); left.style.display='flex'; left.style.flexDirection='column';
-        const mood = document.createElement('div'); mood.textContent = (r.mood || '').toUpperCase(); mood.style.fontSize='11px'; mood.style.fontWeight='700'; mood.style.color='#0f172a';
-        left.appendChild(mood);
-        header.appendChild(left);
-        const right = document.createElement('div'); right.style.fontSize='12px'; right.style.color='#64748b'; right.textContent = this.formatDate(r.date || new Date().toISOString());
-        header.appendChild(right);
-        card.appendChild(header);
-        const title = document.createElement('h3'); title.textContent = r.title || ''; title.style.margin='10px 0 6px 0'; title.style.fontSize='16px'; title.style.color='#0f172a';
-        card.appendChild(title);
-        const content = document.createElement('div'); content.textContent = r.content || ''; content.style.fontSize='13px'; content.style.color='#475569'; content.style.lineHeight='1.5'; content.style.marginTop='8px'; card.appendChild(content);
-        if (Array.isArray(r.images) && r.images.length) {
-          const row = document.createElement('div'); row.style.display='flex'; row.style.gap='8px'; row.style.flexWrap='wrap'; row.style.marginTop='10px';
-          r.images.forEach(img => { if (!img || !img.data) return; const im = document.createElement('img'); im.src = img.data; im.style.width='220px'; im.style.height='140px'; im.style.objectFit='cover'; im.style.borderRadius='8px'; im.style.boxShadow='0 6px 18px rgba(16,24,40,0.06)'; row.appendChild(im); });
-          card.appendChild(row);
-        }
-        return card;
-      };
-
-      // Create hidden render container
+      // We'll clone the live DOM sections so the PDF visually matches the website CSS
       const renderRoot = document.createElement('div');
-      renderRoot.style.position = 'fixed'; renderRoot.style.left='-9999px'; renderRoot.style.top='0'; renderRoot.style.width='820px'; renderRoot.style.zIndex='99999'; renderRoot.style.padding='10px';
+      renderRoot.style.position = 'fixed'; renderRoot.style.left = '-9999px'; renderRoot.style.top = '0'; renderRoot.style.zIndex = '99999'; renderRoot.style.padding = '10px';
+      // pick a pixel width that matches the main content width if present
+      const mainContent = document.querySelector('.container') || document.querySelector('main') || document.body;
+      const widthPx = Math.min(960, (mainContent && mainContent.clientWidth) || 820);
+      renderRoot.style.width = widthPx + 'px';
       document.body.appendChild(renderRoot);
 
-      // Personal header card
+      // Helper to clone a node and remove interactive controls that shouldn't appear in PDF
+      const cloneClean = (el) => {
+        const c = el.cloneNode(true);
+        // remove any buttons, inputs, modals, action toolbars
+        c.querySelectorAll && c.querySelectorAll('.modal, .achievement-actions, .reflection-actions, button, input, textarea, .attach-download').forEach(n => n.remove());
+        // remove any overly interactive elements that might show focus outlines
+        c.querySelectorAll && c.querySelectorAll('[contenteditable]').forEach(n => n.removeAttribute('contenteditable'));
+        return c;
+      };
+
+      // 1) First page: personal info section (use the live DOM if available)
       try {
-        const personalInfo = JSON.parse(localStorage.getItem('personalInfo') || '{}');
-        const personalCard = document.createElement('div'); personalCard.style.width='800px'; personalCard.style.padding='14px'; personalCard.style.background='#fff'; personalCard.style.borderRadius='12px'; personalCard.style.boxShadow='0 8px 24px rgba(16,24,40,0.06)'; personalCard.style.marginBottom='12px';
-        const name = document.createElement('h1'); name.textContent = personalInfo.firstName || document.getElementById('firstName-display')?.textContent || 'Profile'; name.style.margin='0 0 6px 0'; name.style.fontSize='20px'; personalCard.appendChild(name);
-        const prof = document.createElement('div'); prof.textContent = personalInfo.title || document.getElementById('title-display')?.textContent || ''; prof.style.color='#64748b'; personalCard.appendChild(prof);
-        const bio = document.createElement('p'); bio.textContent = personalInfo.bio || document.getElementById('bio-display')?.textContent || ''; bio.style.marginTop='8px'; bio.style.color='#475569'; personalCard.appendChild(bio);
-        renderRoot.appendChild(personalCard);
-      } catch (e) { /* ignore */ }
-
-      // Achievements grouped by category with stylish cards
-      const categories = ['academic','clinical','extracurricular','research','certification'];
-      for (const cat of categories) {
-        const items = (this.achievements || []).filter(a => ((a.category||'').toLowerCase() === cat));
-        if (!items || items.length === 0) continue;
-        const sectionTitle = document.createElement('div'); sectionTitle.style.width='800px'; sectionTitle.style.margin='12px 0'; const h2 = document.createElement('h2'); h2.textContent = cat.charAt(0).toUpperCase() + cat.slice(1); h2.style.fontSize='18px'; h2.style.margin='0 0 8px 0'; sectionTitle.appendChild(h2); renderRoot.appendChild(sectionTitle);
-        for (const it of items) {
-          const node = createAchievementCardNode(it);
-          renderRoot.appendChild(node);
+        const personalEl = document.getElementById('personal');
+        if (personalEl) {
+          const pClone = cloneClean(personalEl);
+          try { pClone.dataset.pdfPersonal = 'true'; } catch (e) {}
+          renderRoot.appendChild(pClone);
+        } else {
+          // fallback: construct a small personal card from localStorage values
+          try {
+            const personalInfo = JSON.parse(localStorage.getItem('personalInfo') || '{}');
+            const personalCard = document.createElement('div'); personalCard.style.width = widthPx + 'px'; personalCard.style.padding = '14px'; personalCard.style.background = '#fff'; personalCard.style.borderRadius = '12px'; personalCard.style.boxShadow = '0 8px 24px rgba(16,24,40,0.06)'; personalCard.style.marginBottom = '12px';
+            const name = document.createElement('h1'); name.textContent = personalInfo.firstName || document.getElementById('firstName-display')?.textContent || 'Profile'; name.style.margin = '0 0 6px 0'; name.style.fontSize = '20px'; personalCard.appendChild(name);
+            const prof = document.createElement('div'); prof.textContent = personalInfo.title || document.getElementById('title-display')?.textContent || ''; prof.style.color = '#64748b'; personalCard.appendChild(prof);
+            const bio = document.createElement('p'); bio.textContent = personalInfo.bio || document.getElementById('bio-display')?.textContent || ''; bio.style.marginTop = '8px'; bio.style.color = '#475569'; personalCard.appendChild(bio);
+            renderRoot.appendChild(personalCard);
+          } catch (e) { /* ignore */ }
         }
-      }
+      } catch (e) { /* ignore personal render errors */ }
 
-      // Reflections
-      if ((this.reflections || []).length) {
-        const h2wrap = document.createElement('div'); h2wrap.style.width='800px'; const h2 = document.createElement('h2'); h2.textContent='Reflections'; h2.style.fontSize='18px'; h2.style.margin='12px 0 8px 0'; h2wrap.appendChild(h2); renderRoot.appendChild(h2wrap);
-        for (const r of this.reflections) {
-          const node = createReflectionCardNode(r);
-          renderRoot.appendChild(node);
+      // 2) Descriptive portfolio heading and grouped achievements by category
+      try {
+        const descHeading = document.createElement('div');
+        descHeading.style.width = widthPx + 'px';
+        descHeading.style.margin = '18px 0 8px 0';
+        descHeading.style.padding = '12px 8px';
+        descHeading.style.background = 'linear-gradient(90deg,#f8fafc,#ffffff)';
+        descHeading.style.borderRadius = '10px';
+        const dh = document.createElement('h1'); dh.textContent = 'Descriptive portfolio'; dh.style.margin = '0'; dh.style.fontSize = '20px'; dh.style.letterSpacing = '0.2px'; dh.style.color = '#0f172a'; dh.style.fontWeight = '700';
+  descHeading.appendChild(dh);
+  descHeading.dataset.pdfForcePageBreak = 'before';
+  renderRoot.appendChild(descHeading);
+
+        const categories = ['academic','clinical','extracurricular','research'];
+        const achContainer = document.getElementById('achievements-container');
+        if (achContainer) {
+          for (const cat of categories) {
+            const items = Array.from(achContainer.querySelectorAll('.achievement-card')).filter(c => (c.dataset.category || '').toLowerCase() === cat && c.style.display !== 'none');
+            if (!items || items.length === 0) continue;
+            // category subheading
+            const catWrap = document.createElement('div'); catWrap.style.width = widthPx + 'px'; catWrap.style.margin = '12px 0 6px 0';
+            const catTitle = document.createElement('h2'); catTitle.textContent = cat.charAt(0).toUpperCase() + cat.slice(1); catTitle.style.fontSize = '16px'; catTitle.style.margin = '0 0 8px 0'; catTitle.style.color = '#0f172a'; catTitle.style.fontWeight = '700';
+            const line = document.createElement('div'); line.style.height = '2px'; line.style.background = '#eef2ff'; line.style.marginTop = '6px'; line.style.borderRadius = '4px';
+            catWrap.appendChild(catTitle); catWrap.appendChild(line);
+            renderRoot.appendChild(catWrap);
+
+            // append each item under this category
+            for (const c of items) {
+              try { renderRoot.appendChild(cloneClean(c)); } catch (e) { /* ignore individual clone errors */ }
+            }
+          }
         }
-      }
+      } catch (e) { console.warn('Failed to clone achievements for PDF', e); }
 
-      // Now render each child (which should be individual cards/sections) and add to PDF, stacking vertically
+      // 3) Reflective portfolio heading and reflections
+      try {
+        const reflHeading = document.createElement('div');
+        reflHeading.style.width = widthPx + 'px';
+        reflHeading.style.margin = '18px 0 8px 0';
+        reflHeading.style.padding = '12px 8px';
+        reflHeading.style.background = 'linear-gradient(90deg,#f8fafc,#ffffff)';
+        reflHeading.style.borderRadius = '10px';
+        const rh = document.createElement('h1'); rh.textContent = 'Reflective portfolio'; rh.style.margin = '0'; rh.style.fontSize = '20px'; rh.style.letterSpacing = '0.2px'; rh.style.color = '#0f172a'; rh.style.fontWeight = '700';
+  reflHeading.appendChild(rh);
+  reflHeading.dataset.pdfForcePageBreak = 'before';
+  renderRoot.appendChild(reflHeading);
+
+        const refContainer = document.getElementById('reflections-container');
+        if (refContainer) {
+          const cards = Array.from(refContainer.querySelectorAll('.reflection-card'));
+          for (const c of cards) {
+            if (c.style.display === 'none') continue;
+            renderRoot.appendChild(cloneClean(c));
+          }
+        }
+      } catch (e) { console.warn('Failed to clone reflections for PDF', e); }
+
+      // Render each child to canvas and add to PDF, preserving links by adding annotations
       const children = Array.from(renderRoot.children);
-      let pageIndex = 0;
       for (let i = 0; i < children.length; i++) {
         const node = children[i];
-        // Render node to canvas
-        // Use scale 2 for clarity
-        // Ensure images are loaded by waiting a tick
-        await new Promise(r => setTimeout(r, 50));
-        const canvas = await html2canvas(node, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' });
+        // Small visual placeholder (SVG) used when images fail to load
+        const _placeholderSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400'><rect width='100%' height='100%' fill='#f3f4f6'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#9ca3af' font-family='Arial' font-size='20'>Image unavailable</text></svg>`;
+        const _placeholderDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(_placeholderSvg);
+
+        // Replace any broken/unloaded images with a placeholder and return a restore list
+        const replaceBrokenImages = (parent) => {
+          try {
+            const imgs = Array.from(parent.querySelectorAll('img'));
+            const replaced = [];
+            imgs.forEach(img => {
+              const ok = img.complete && img.naturalWidth && img.naturalHeight;
+              if (!ok) {
+                replaced.push({ img, origSrc: img.src, origSrcset: img.srcset || '' });
+                try { img.src = _placeholderDataUrl; img.srcset = ''; } catch (e) { /* ignore */ }
+              }
+            });
+            return replaced;
+          } catch (e) { return []; }
+        };
+
+        // Wait for images inside the node to finish loading (avoid 0x0 canvas from html2canvas)
+        const waitForImagesToLoad = async (parent, timeout = 2000) => {
+          try {
+            const imgs = Array.from(parent.querySelectorAll('img'));
+            if (!imgs.length) return true;
+            const promises = imgs.map((img) => new Promise((resolve) => {
+              if (img.complete && img.naturalWidth && img.naturalHeight) return resolve(true);
+              let settled = false;
+              const onDone = () => { if (settled) return; settled = true; cleanup(); resolve(img.naturalWidth > 0 && img.naturalHeight > 0); };
+              const onErr = () => { if (settled) return; settled = true; cleanup(); resolve(false); };
+              const cleanup = () => { img.removeEventListener('load', onDone); img.removeEventListener('error', onErr); };
+              img.addEventListener('load', onDone); img.addEventListener('error', onErr);
+              // fallback timeout
+              setTimeout(() => { if (settled) return; settled = true; cleanup(); resolve(img.naturalWidth > 0 && img.naturalHeight > 0); }, timeout);
+            }));
+            await Promise.all(promises);
+            return true;
+          } catch (e) { return false; }
+        };
+        // If this node requests a page break before it, start a new page
+        try {
+          if (node.dataset && node.dataset.pdfForcePageBreak === 'before') {
+            // Only add a new page if current page already has content (cursorY > margin).
+            // This prevents creating an extra blank page when the prior node already added a fresh page
+            if (cursorY > margin) { pdf.addPage(); pageIndex++; cursorY = margin; }
+          }
+        } catch (e) { /* ignore */ }
+        // Ensure layout/styles settle. Replace broken images with placeholders so
+        // html2canvas still renders the layout even if some images fail to load.
+        await new Promise(r => setTimeout(r, 60));
+        const replacedImgs = replaceBrokenImages(node);
+        try {
+          await waitForImagesToLoad(node, 2000);
+        } catch (e) { /* continue - we'll still attempt to render with placeholders */ }
+
+        // Collect anchors for annotation (href may be relative; resolve to absolute)
+        const anchors = Array.from(node.querySelectorAll('a')).map(a => {
+          try { return { href: a.href || a.getAttribute('href'), rect: a.getBoundingClientRect() }; } catch (e) { return null; }
+        }).filter(Boolean);
+
+  const nodeRect = node.getBoundingClientRect();
+  // For mobile-like rendering, apply a slightly smaller scale so entries don't appear oversized
+  const mobileDownscale = (node.dataset && node.dataset.pdfPersonal === 'true') ? 1 : 0.92; // don't downscale personal here
+  const canvas = await html2canvas(node, { scale: 2 * mobileDownscale, useCORS: true, logging: false, backgroundColor: '#ffffff' });
+        // Defensive: html2canvas may return a zero-dimension canvas for hidden/empty nodes.
+        if (!canvas || !canvas.width || !canvas.height) {
+          console.warn('html2canvas returned empty canvas for node, skipping:', node);
+          // restore replaced images before continuing
+          try { replacedImgs.forEach(r => { r.img.src = r.origSrc; r.img.srcset = r.origSrcset || ''; }); } catch (e) {}
+          continue;
+        }
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
-        // compute image size in pdf points
         const pxWidth = canvas.width;
         const pxHeight = canvas.height;
-        const pdfImgWidth = contentWidth; // fit to content width
-        const pdfImgHeight = (pxHeight * pdfImgWidth) / pxWidth;
+        let pdfImgWidth = contentWidth; // fit to content width
+        let pdfImgHeight = (pxHeight * pdfImgWidth) / pxWidth;
 
-        if (cursorY + pdfImgHeight > pageHeight - margin) {
-          pdf.addPage(); pageIndex++; cursorY = margin;
+        // If this rendered node is extremely tall (taller than a single page), try to scale it down to fit one page
+        const usablePageHeight = pageHeight - margin * 2;
+        if (pdfImgHeight > usablePageHeight * 1.05) {
+          // Scale down to fit the usable page height
+          const scaleDownToFit = usablePageHeight / pdfImgHeight;
+          pdfImgWidth = Math.max(40, pdfImgWidth * scaleDownToFit);
+          pdfImgHeight = pdfImgHeight * scaleDownToFit;
         }
-        pdf.addImage(imgData, 'JPEG', margin, cursorY, pdfImgWidth, pdfImgHeight);
-        cursorY += pdfImgHeight + 12; // small gap
+
+        // If this node was marked as the personal section, force it to fit into a single PDF page
+        const isPersonal = node.dataset && node.dataset.pdfPersonal === 'true';
+        const maxSingleHeight = pageHeight - margin * 2;
+        if (isPersonal) {
+          if (pdfImgHeight > maxSingleHeight) {
+            const scaleDown = maxSingleHeight / pdfImgHeight;
+            pdfImgWidth = pdfImgWidth * scaleDown;
+            pdfImgHeight = pdfImgHeight * scaleDown;
+          }
+          // Place personal on its own page (avoid slicing)
+          if (cursorY + pdfImgHeight > pageHeight - margin) { if (cursorY > margin) { pdf.addPage(); pageIndex++; cursorY = margin; } }
+          pdf.addImage(imgData, 'JPEG', margin, cursorY, pdfImgWidth, pdfImgHeight);
+          // ensure next content starts on fresh page
+          pdf.addPage(); pageIndex++; cursorY = margin;
+          try { replacedImgs.forEach(r => { r.img.src = r.origSrc; r.img.srcset = r.origSrcset || ''; }); } catch (e) {}
+          continue;
+        }
+
+        // If the rendered node is taller than a page, slice the canvas vertically into page-sized strips
+        const maxContentHeight = pageHeight - margin - margin; // usable height
+        const pageScale = pdfImgHeight / pxHeight; // points per pixel vertically
+        // Compute available remaining height on current page
+        const remainingHeight = pageHeight - margin - cursorY;
+        // If this node is an entry-like element (achievement/reflection) we prefer to keep it whole on the next page
+        const looksLikeEntry = node.classList && (node.classList.contains('achievement-card') || node.classList.contains('reflection-card') || node.querySelector && node.querySelector('.achievement-title') || node.querySelector && node.querySelector('.reflection-title'));
+        if (looksLikeEntry && pdfImgHeight > remainingHeight) {
+          // Move the whole entry to the next page if it fits there, otherwise we'll slice only when the entry itself is larger than a page
+          if (pdfImgHeight <= usablePageHeight) {
+            pdf.addPage(); pageIndex++; cursorY = margin;
+          }
+        }
+
+        if (pdfImgHeight <= pageHeight - margin - cursorY) {
+          // fits in remaining space (after possible page move above)
+          if (cursorY + pdfImgHeight > pageHeight - margin) { pdf.addPage(); pageIndex++; cursorY = margin; }
+          pdf.addImage(imgData, 'JPEG', margin, cursorY, pdfImgWidth, pdfImgHeight);
+
+          // add links for anchors
+          try {
+            const scaleX = pdfImgWidth / (nodeRect.width || 1);
+            const scaleY = pdfImgHeight / (nodeRect.height || 1);
+            for (const a of anchors) {
+              if (!a || !a.href) continue;
+              const href = a.href;
+              const relLeft = (a.rect.left - nodeRect.left);
+              const relTop = (a.rect.top - nodeRect.top);
+              const x = margin + relLeft * scaleX;
+              const y = cursorY + relTop * scaleY;
+              const w = (a.rect.width || 1) * scaleX;
+              const h = (a.rect.height || 1) * scaleY;
+              try { pdf.link(x, y, w, h, { url: href }); } catch (e) {}
+            }
+          } catch (e) { console.warn('Failed to add PDF link annotations', e); }
+
+          cursorY += pdfImgHeight + 12;
+        } else {
+          // Slice vertically: draw successive clipped images
+          // Create an offscreen canvas to extract stripes at 1:1 canvas pixel density
+          const off = document.createElement('canvas'); off.width = canvas.width; off.height = canvas.height;
+          const offCtx = off.getContext('2d');
+          // Defensive: ensure canvas has non-zero dimensions before drawing
+          if (canvas.width > 0 && canvas.height > 0 && off.width > 0 && off.height > 0) {
+            offCtx.drawImage(canvas, 0, 0);
+          } else {
+            console.warn('Skipping slice draw: zero-dimension canvas', { canvasWidth: canvas.width, canvasHeight: canvas.height });
+            try { replacedImgs.forEach(r => { r.img.src = r.origSrc; r.img.srcset = r.origSrcset || ''; }); } catch (e) {}
+            continue;
+          }
+
+          // compute stripe height in canvas pixels that maps to maxContentHeight in PDF points
+          const stripePdfHeight = maxContentHeight; // points
+          let stripePxHeight = Math.floor(stripePdfHeight / pageScale);
+          // Prevent splitting images: if a stripe boundary would cut through an image, expand the stripe to include the image
+          try {
+            const imgs = Array.from(node.querySelectorAll('img')).map(img => {
+              const r = img.getBoundingClientRect(); return { top: Math.round((r.top - nodeRect.top) * (pxHeight / nodeRect.height)), bottom: Math.round((r.bottom - nodeRect.top) * (pxHeight / nodeRect.height)) };
+            }).filter(Boolean);
+            if (imgs.length) {
+              // for each potential slice starting point, ensure it does not fall inside an image
+              const adjustSliceTop = (proposedTopPx) => {
+                let top = proposedTopPx;
+                for (const im of imgs) {
+                  if (top > im.top && top < im.bottom) {
+                    // move top down to image bottom
+                    top = im.bottom;
+                  }
+                }
+                return top;
+              };
+              // Recompute stripePxHeight as a conservative minimum (no change here), adjustments happen per-slice below
+            }
+          } catch (e) { /* ignore image-split adjustments if measurement fails */ }
+          let sliceTop = 0;
+          // Precompute image positions in canvas pixels to avoid slicing through images
+          let imgBounds = [];
+          try {
+            imgBounds = Array.from(node.querySelectorAll('img')).map(img => {
+              const r = img.getBoundingClientRect();
+              return { top: Math.round((r.top - nodeRect.top) * (pxHeight / nodeRect.height)), bottom: Math.round((r.bottom - nodeRect.top) * (pxHeight / nodeRect.height)) };
+            }).filter(b => typeof b.top === 'number' && typeof b.bottom === 'number');
+          } catch (e) { imgBounds = []; }
+
+          while (sliceTop < canvas.height) {
+            // If the current sliceTop falls inside any image, move it to that image's bottom
+            let adjustedTop = sliceTop;
+            for (const ib of imgBounds) {
+              if (adjustedTop > ib.top && adjustedTop < ib.bottom) {
+                adjustedTop = ib.bottom;
+              }
+            }
+            // Ensure adjustedTop advances to avoid infinite loop
+            if (adjustedTop >= canvas.height) break;
+            if (adjustedTop !== sliceTop) {
+              // started inside an image; move sliceTop forward
+              sliceTop = adjustedTop;
+            }
+
+            const hPx = Math.min(stripePxHeight, canvas.height - sliceTop);
+            if (hPx <= 0) break;
+            const slice = document.createElement('canvas'); slice.width = canvas.width; slice.height = hPx;
+            const sctx = slice.getContext('2d');
+            sctx.drawImage(off, 0, sliceTop, canvas.width, hPx, 0, 0, canvas.width, hPx);
+            const sliceData = slice.toDataURL('image/jpeg', 0.95);
+            const slicePdfH = (hPx * pdfImgWidth) / pxWidth;
+
+            if (cursorY + slicePdfH > pageHeight - margin) { pdf.addPage(); pageIndex++; cursorY = margin; }
+            pdf.addImage(sliceData, 'JPEG', margin, cursorY, pdfImgWidth, slicePdfH);
+
+            // Add link annotations that fall within this slice
+            try {
+              const sliceTopPx = sliceTop;
+              const scaleX = pdfImgWidth / (nodeRect.width || 1);
+              const scaleY = slicePdfH / (hPx || 1); // mapping for this slice
+              for (const a of anchors) {
+                if (!a || !a.href) continue;
+                const relLeft = (a.rect.left - nodeRect.left);
+                const relTop = (a.rect.top - nodeRect.top);
+                // check if anchor vertical position falls within this slice
+                if (relTop + (a.rect.height || 0) < sliceTopPx || relTop > sliceTopPx + hPx) continue;
+                const localTop = relTop - sliceTopPx;
+                const x = margin + relLeft * scaleX;
+                const y = cursorY + localTop * (slicePdfH / hPx);
+                const w = (a.rect.width || 1) * scaleX;
+                const h = (a.rect.height || 1) * (slicePdfH / hPx);
+                try { pdf.link(x, y, w, h, { url: a.href }); } catch (e) {}
+              }
+            } catch (e) { console.warn('Failed to add PDF link annotations for slice', e); }
+
+            cursorY += slicePdfH + 6; // small gap between slices
+            // advance
+            sliceTop += hPx;
+            // if there is more content, start a new page
+            if (sliceTop < canvas.height) { pdf.addPage(); pageIndex++; cursorY = margin; }
+          }
+        }
+        // restore any replaced images after rendering this node
+        try { replacedImgs.forEach(r => { r.img.src = r.origSrc; r.img.srcset = r.origSrcset || ''; }); } catch (e) {}
+        // If we approach bottom, next loop will addPage as needed
       }
 
-      // Cleanup render root
-      document.body.removeChild(renderRoot);
-      // Save PDF
+      // Cleanup
+      try { document.body.removeChild(renderRoot); } catch (e) { /* ignore */ }
       const filename = `portfolio-export-${new Date().toISOString().split('T')[0]}.pdf`;
       pdf.save(filename);
       this.showToast('Exported portfolio to PDF', 'success');
