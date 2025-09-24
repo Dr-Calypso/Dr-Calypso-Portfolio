@@ -50,14 +50,14 @@ class PortfolioApp {
     try {
       const data = JSON.parse(localStorage.getItem('personalInfo') || '{}');
       if (!data) return;
-  const fields = ['firstName','title','bio','email','phone','location','linkedin'];
+  const fields = ['firstName','title','bio','email','phone','location'];
       fields.forEach(id => {
         const display = document.getElementById(id + '-display');
         const input = document.getElementById(id);
         if (display && typeof data[id] !== 'undefined') display.textContent = data[id];
         if (input && typeof data[id] !== 'undefined') input.value = data[id];
       });
-      // Load avatar if present
+  // Load avatar if present
       const imgData = localStorage.getItem('profilePhoto');
       if (imgData) {
         const img = document.querySelector('.avatar-image');
@@ -72,6 +72,8 @@ class PortfolioApp {
         const fallback = document.querySelector('.avatar-fallback');
         if (fallback) { fallback.textContent = initials; fallback.style.display = 'flex'; }
       }
+      // Ensure personal info display fields are linkified (emails, phones, urls)
+      try { this.linkifyPersonalInfo(); } catch (e) { /* ignore */ }
     } catch (e) { console.warn('Failed to load personal info', e); }
   }
 
@@ -518,7 +520,7 @@ class PortfolioApp {
 
     // Toggle display spans and input fields
     const fields = [
-  'firstName', 'title', 'bio', 'email', 'phone', 'location', 'linkedin'
+  'firstName', 'title', 'bio', 'email', 'phone', 'location'
     ];
     fields.forEach(id => {
       const input = document.getElementById(id);
@@ -538,7 +540,7 @@ class PortfolioApp {
   savePersonal() {
     // Update display spans with new values
     const fields = [
-      'firstName', 'title', 'bio', 'email', 'phone', 'location', 'linkedin'
+      'firstName', 'title', 'bio', 'email', 'phone', 'location'
     ];
     const saved = JSON.parse(localStorage.getItem('personalInfo') || '{}');
     fields.forEach(id => {
@@ -560,6 +562,120 @@ class PortfolioApp {
 
     this.toggleEditPersonal(false);
     this.showToast('Personal information updated successfully', 'success');
+    // Re-run linkify so newly-saved text becomes clickable where appropriate
+    try { this.linkifyPersonalInfo(); } catch (e) { /* ignore */ }
+  }
+
+  // Convert plain text URLs, emails, and phone numbers inside personal info display
+  // spans into clickable anchors so they are interactive on the page and will
+  // be preserved (as anchors) when exported to PDF.
+  linkifyPersonalInfo() {
+    try {
+      const rootIds = ['firstName-display','title-display','bio-display','email-display','phone-display','location-display'];
+      const urlRegex = /(\b(?:https?:\/\/|www\.|[a-z0-9.-]+\.[a-z]{2,})(?:[^\s<>()]*))/gi;
+      const emailRegex = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
+      const phoneRegex = /(\+?\d[\d\s().-]{4,}\d)/g;
+
+      const processElement = (el) => {
+        if (!el) return;
+        // If the element already contains an anchor, ensure href is absolute and style applied
+        if (el.querySelector && el.querySelector('a')) {
+          Array.from(el.querySelectorAll('a')).forEach(a => {
+            try { const raw = a.getAttribute('href') || a.href || ''; if (!/^https?:\/\//i.test(raw) && !/^mailto:/i.test(raw) && !/^tel:/i.test(raw)) { try { a.href = new URL(raw, document.location.href).href; } catch (e) {} } a.style.color = '#0366d6'; a.style.textDecoration = 'underline'; } catch (e) {}
+          });
+          return;
+        }
+
+        // Walk text nodes and replace URLs/emails/phones with anchors
+        const walk = (node) => {
+          if (!node) return;
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            // avoid modifying input elements or anchors
+            const tag = node.tagName && node.tagName.toLowerCase();
+            if (tag === 'a' || tag === 'input' || tag === 'textarea' || tag === 'button') return;
+            const children = Array.from(node.childNodes);
+            for (const c of children) walk(c);
+            return;
+          }
+          if (node.nodeType === Node.TEXT_NODE) {
+            const text = node.nodeValue;
+            if (!text || !text.trim()) return;
+            // If the whole text is an email, replace with mailto
+            if (emailRegex.test(text) && text.trim().match(emailRegex)[0].length === text.trim().length) {
+              const addr = text.trim();
+              const a = document.createElement('a'); a.href = 'mailto:' + addr; a.textContent = addr; a.style.color = '#0366d6'; a.style.textDecoration = 'underline'; node.parentNode.replaceChild(a, node); return;
+            }
+            // If the whole text looks like a phone number, replace with tel:
+            const phoneMatch = text.trim().match(/^\+?\d[\d\s().-]{4,}\d$/);
+            if (phoneMatch) {
+              const num = text.trim();
+              const a = document.createElement('a'); a.href = 'tel:' + num.replace(/[^+\d]/g, ''); a.textContent = num; a.style.color = '#0366d6'; a.style.textDecoration = 'underline'; node.parentNode.replaceChild(a, node); return;
+            }
+
+            // otherwise attempt to linkify URLs within the text node
+            urlRegex.lastIndex = 0;
+            let match; let lastIndex = 0; let found = false;
+            const frag = document.createDocumentFragment();
+            while ((match = urlRegex.exec(text)) !== null) {
+              found = true;
+              const url = match[0]; const idx = match.index;
+              if (idx > lastIndex) frag.appendChild(document.createTextNode(text.slice(lastIndex, idx)));
+              let href = url;
+              if (/^www\./i.test(href)) href = 'https://' + href;
+              // add protocol for bare domains
+              if (!/^https?:\/\//i.test(href)) href = 'https://' + href;
+              const a = document.createElement('a'); a.href = href; a.textContent = url; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.style.color = '#0366d6'; a.style.textDecoration = 'underline'; frag.appendChild(a);
+              lastIndex = idx + url.length;
+            }
+            if (!found) return;
+            if (lastIndex < text.length) frag.appendChild(document.createTextNode(text.slice(lastIndex)));
+            if (node.parentNode) node.parentNode.replaceChild(frag, node);
+          }
+        };
+        walk(el);
+      };
+
+      for (const id of rootIds) {
+        const el = document.getElementById(id);
+        try {
+          // Special-case email/phone/location to ensure clear anchors
+          if (el && id === 'email-display') {
+            const txt = (el.textContent || '').trim();
+            if (txt && /\S+@\S+\.\S+/.test(txt)) {
+              el.innerHTML = `<a href="mailto:${txt}" style="color:#0366d6;text-decoration:underline;cursor:pointer;">${txt}</a>`;
+              continue;
+            }
+          }
+          if (el && id === 'phone-display') {
+            const txt = (el.textContent || '').trim();
+            const cleaned = txt.replace(/[^+\d]/g, '');
+            if (cleaned && cleaned.length >= 7) {
+              el.innerHTML = `<a href="tel:${cleaned}" style="color:#0366d6;text-decoration:underline;cursor:pointer;">${txt}</a>`;
+              continue;
+            }
+          }
+          if (el && id === 'location-display') {
+            const txt = (el.textContent || '').trim();
+            if (txt && (/^https?:\/\//i.test(txt) || /^www\./i.test(txt) || /\.[a-z]{2,}(\/|$)/i.test(txt))) {
+              let href = txt;
+              if (/^www\./i.test(href)) href = 'https://' + href;
+              if (!/^https?:\/\//i.test(href)) href = 'https://' + href;
+              el.innerHTML = `<a href="${href}" target="_blank" rel="noopener noreferrer" style="color:#0366d6;text-decoration:underline;cursor:pointer;">${txt}</a>`;
+              continue;
+            }
+          }
+          processElement(el);
+        } catch (e) { /* ignore per-element */ }
+      }
+
+      // Ensure CMS Attendance anchor remains styled and clickable
+      try {
+        const cms = document.getElementById('cms-attendance');
+        if (cms && cms.tagName && cms.tagName.toLowerCase() === 'a') {
+          cms.style.color = '#0366d6'; cms.style.textDecoration = 'underline'; cms.style.cursor = 'pointer'; cms.setAttribute('target','_blank'); cms.setAttribute('rel','noopener noreferrer');
+        }
+      } catch (e) { /* ignore */ }
+    } catch (e) { /* swallow linkify errors */ }
   }
 
   // Achievement Management
@@ -1430,6 +1546,86 @@ class PortfolioApp {
         }
       } catch (e) { console.warn('Failed to clone reflections for PDF', e); }
 
+      // Convert any plain-text URLs inside the cloned renderRoot to real anchors
+      // so jsPDF can add link annotations for them (e.g. links in descriptions).
+      const linkifyTextUrls = (root) => {
+        try {
+          // Match full http(s) urls, www-prefixed, or bare domains like example.com/path
+          const urlRegex = /(\b(?:https?:\/\/|www\.|[a-z0-9.-]+\.[a-z]{2,})(?:[^\s<>()]*))/gi;
+          const walk = (node) => {
+            if (!node) return;
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              const tag = node.tagName && node.tagName.toLowerCase();
+              if (tag === 'a' || tag === 'script' || tag === 'style') return;
+              // walk a static copy because we may replace child nodes
+              const children = Array.from(node.childNodes);
+              for (const c of children) walk(c);
+              return;
+            }
+            if (node.nodeType === Node.TEXT_NODE) {
+              const text = node.nodeValue;
+              if (!text) return;
+              urlRegex.lastIndex = 0;
+              let match;
+              let lastIndex = 0;
+              const frag = document.createDocumentFragment();
+              let found = false;
+              while ((match = urlRegex.exec(text)) !== null) {
+                found = true;
+                const url = match[0];
+                const idx = match.index;
+                if (idx > lastIndex) frag.appendChild(document.createTextNode(text.slice(lastIndex, idx)));
+                // normalize URL (add https if it starts with www.) and trim trailing punctuation
+                let href = url;
+                if (/^www\./i.test(href)) href = 'https://' + href;
+                href = href.replace(/[.,;:()]+$/g, '');
+                try {
+                  const a = document.createElement('a');
+                  a.setAttribute('href', href);
+                  a.textContent = url;
+                  a.setAttribute('target', '_blank');
+                  a.setAttribute('rel', 'noopener noreferrer');
+                  // Add lightweight inline styling so links appear clearly in the rendered PDF
+                  try { a.style.color = '#0366d6'; a.style.textDecoration = 'underline'; } catch (e) {}
+                  frag.appendChild(a);
+                } catch (e) {
+                  frag.appendChild(document.createTextNode(url));
+                }
+                lastIndex = idx + url.length;
+              }
+              if (!found) return;
+              if (lastIndex < text.length) frag.appendChild(document.createTextNode(text.slice(lastIndex)));
+              if (node.parentNode) node.parentNode.replaceChild(frag, node);
+            }
+          };
+          walk(root);
+        } catch (e) { /* ignore linkify errors */ }
+      };
+
+      // Run linkify on the cloned render root so any plain URLs become anchors
+      try { linkifyTextUrls(renderRoot); } catch (e) { /* ignore */ }
+
+      // Ensure all anchors have absolute hrefs and consistent inline styling so PDF link annotations are valid
+      try {
+        const anchors = Array.from(renderRoot.querySelectorAll('a'));
+        anchors.forEach(a => {
+          try {
+            const raw = a.getAttribute('href') || a.href || '';
+            // If it's already absolute (starts with http(s):), leave it
+            if (/^https?:\/\//i.test(raw)) { a.href = raw; } else {
+              // Resolve relative to current document location
+              try { a.href = new URL(raw, document.location.href).href; } catch (e) { /* leave as-is */ }
+            }
+            // Ensure visible link styling in the rendered PDF
+            try {
+              a.style.color = '#0366d6';
+              a.style.textDecoration = 'underline';
+              a.style.textDecorationColor = '#0366d6';
+            } catch (e) { /* ignore styling errors */ }
+          } catch (e) { /* ignore per-anchor */ }
+        });
+      } catch (e) { /* ignore anchor resolution errors */ }
+
       // Render each child to canvas and add to PDF, preserving links by adding annotations
       const children = Array.from(renderRoot.children);
       for (let i = 0; i < children.length; i++) {
@@ -1682,9 +1878,8 @@ class PortfolioApp {
 
       // Cleanup
       try { document.body.removeChild(renderRoot); } catch (e) { /* ignore */ }
-      const filename = `portfolio-export-${new Date().toISOString().split('T')[0]}.pdf`;
-      pdf.save(filename);
-      this.showToast('Exported portfolio to PDF', 'success');
+  const filename = `portfolio-export-${new Date().toISOString().split('T')[0]}.pdf`;
+  try { pdf.save(filename); this.showToast('Exported portfolio to PDF', 'success'); } catch (e) { this.showToast('Failed to save PDF', 'error'); }
     } catch (err) {
       console.error('exportToPdf error', err);
       this.showToast('Failed to export PDF', 'error');
