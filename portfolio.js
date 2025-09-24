@@ -1349,10 +1349,9 @@ class PortfolioApp {
       // We'll clone the live DOM sections so the PDF visually matches the website CSS
       const renderRoot = document.createElement('div');
       renderRoot.style.position = 'fixed'; renderRoot.style.left = '-9999px'; renderRoot.style.top = '0'; renderRoot.style.zIndex = '99999'; renderRoot.style.padding = '10px';
-      // pick a pixel width that matches the main content width if present
-      const mainContent = document.querySelector('.container') || document.querySelector('main') || document.body;
-      const widthPx = Math.min(960, (mainContent && mainContent.clientWidth) || 820);
-      renderRoot.style.width = widthPx + 'px';
+  // Always use desktop width for PDF export, regardless of current device/viewport
+  const widthPx = 960;
+  renderRoot.style.width = widthPx + 'px';
       document.body.appendChild(renderRoot);
 
       // Helper to clone a node and remove interactive controls that shouldn't appear in PDF
