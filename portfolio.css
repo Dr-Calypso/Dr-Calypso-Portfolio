@@ -166,6 +166,27 @@ body {
   margin-bottom: 2rem;
   flex-wrap: wrap;
   gap: 1rem;
+  padding: 1.5rem;
+  background: linear-gradient(to right, 
+    hsl(0, 60%, 96%) 0%, 
+    hsl(45, 65%, 96%) 100%
+  ); /* RMU themed header background */
+  border-radius: calc(var(--radius) * 1.5);
+  border: 1px solid hsl(45, 65%, 70%);
+  box-shadow: 0 4px 12px rgba(139, 69, 19, 0.05);
+}
+
+/* RMU-themed section styling */
+#descriptive, #reflective {
+  background: linear-gradient(to bottom, 
+    hsl(var(--background)) 0%, 
+    hsl(0, 60%, 98%) 10%, 
+    hsl(45, 65%, 98%) 90%, 
+    hsl(var(--background)) 100%
+  ); /* Subtle RMU gradient background */
+  padding: 2rem 1rem;
+  border-radius: calc(var(--radius) * 2);
+  margin: 1rem 0;
 }
 
 /* Sticky category bar: when descriptive section active, keep the bar visible under header */
@@ -173,14 +194,18 @@ body {
   position: sticky;
   top: 72px; /* header height + small gap */
   z-index: 90;
-  background: hsl(210 90% 97%);
+  background: linear-gradient(to right, hsl(0, 60%, 95%), hsl(45, 65%, 95%)); /* RMU themed gradient */
 }
 
 .section-header h2 {
   font-size: 2rem;
   font-weight: 700;
-  color: hsl(var(--foreground));
+  color: hsl(0, 60%, 35%); /* RMU Maroon */
   margin-bottom: 0.5rem;
+  font-family: 'Times New Roman', serif;
+  border-bottom: 2px solid hsl(45, 65%, 60%); /* RMU Gold accent */
+  padding-bottom: 0.5rem;
+  display: inline-block;
 }
 
 .section-header p {
@@ -253,13 +278,14 @@ body {
 }
 
 .btn-primary {
-  background: hsl(var(--primary));
-  color: hsl(var(--primary-foreground));
-  border-color: hsl(var(--primary));
+  background: linear-gradient(135deg, hsl(0, 60%, 35%) 0%, hsl(0, 60%, 40%) 100%); /* RMU Maroon gradient */
+  color: white;
+  border-color: hsl(0, 60%, 35%);
 }
 
 .btn-primary:hover {
-  background: hsl(var(--primary) / 0.9);
+  background: linear-gradient(135deg, hsl(0, 60%, 30%) 0%, hsl(0, 60%, 35%) 100%); /* Darker on hover */
+  border-color: hsl(0, 60%, 30%);
 }
 
 .btn-success {
@@ -622,12 +648,19 @@ body {
 
 .filter-select {
   padding: 0.5rem 0.75rem;
-  border: 1px solid hsl(var(--border));
+  border: 1px solid hsl(45, 65%, 60%); /* RMU Gold border */
   border-radius: var(--radius);
   background: hsl(var(--card));
-  color: hsl(var(--foreground));
+  color: hsl(0, 60%, 35%); /* RMU Maroon text */
   font-size: 0.875rem;
   cursor: pointer;
+  font-family: 'Times New Roman', serif;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: hsl(0, 60%, 35%);
+  box-shadow: 0 0 0 2px hsl(0, 60%, 35% / 0.2);
 }
 
 /* Full-width Category Bar (Descriptive Portfolio) */
@@ -636,14 +669,14 @@ body {
   width: 100%;
   max-width: 1200px;
   margin: 0.5rem auto 1rem;
-  background: hsl(210 90% 97%);
-  border: 1px solid hsl(var(--border));
+  background: linear-gradient(to right, hsl(0, 60%, 95%), hsl(45, 65%, 95%)); /* RMU themed gradient */
+  border: 2px solid hsl(45, 65%, 60%); /* RMU Gold border */
   border-radius: calc(var(--radius) * 0.6);
   display: flex;
   align-items: center;
   justify-content: space-between;
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 4px 12px rgba(139, 69, 19, 0.15); /* RMU maroon shadow */
   padding: 0; /* remove extra wrapper padding so bar is slimmer */
 }
 
@@ -659,10 +692,11 @@ body {
   border: none;
   cursor: pointer;
   font-weight: 600;
-  color: hsl(var(--muted-foreground));
+  color: hsl(0, 60%, 45%); /* RMU Maroon for text */
   transition: var(--transition-smooth);
   position: relative;
   letter-spacing: 0.02em;
+  font-family: 'Times New Roman', serif;
 }
 
 .category-bar-wrapper .descriptive-category:not(:last-child)::after {
@@ -672,20 +706,20 @@ body {
   top: 20%;
   height: 60%;
   width: 1px;
-  background: hsl(var(--border));
-  opacity: 0.9;
+  background: hsl(45, 65%, 60%); /* RMU Gold divider */
+  opacity: 0.7;
 }
 
 .category-bar-wrapper .descriptive-category:hover {
-  background: hsl(210 95% 94%);
-  color: hsl(var(--foreground));
+  background: hsl(45, 65%, 85%); /* RMU Gold hover */
+  color: hsl(0, 60%, 25%); /* Darker maroon on hover */
 }
 
 .category-bar-wrapper .descriptive-category.active {
-  /* Active category is slightly stronger blue to stand out */
-  background: linear-gradient(90deg, hsl(210 85% 65%), hsl(210 85% 55%));
-  color: hsl(var(--primary-foreground));
-  box-shadow: 0 3px 8px -6px hsl(210 85% 45% / 0.5) inset;
+  /* Active category uses RMU maroon gradient */
+  background: linear-gradient(90deg, hsl(0, 60%, 40%), hsl(0, 60%, 30%));
+  color: white;
+  box-shadow: 0 3px 8px -6px hsl(0, 60%, 35% / 0.6) inset;
 }
 
 /* Icon inside category pill */
@@ -758,15 +792,22 @@ body {
 
 /* Mobile select active styling: match pill active color */
 .mobile-descriptive-select.active {
-  background: linear-gradient(90deg, hsl(210 85% 65%), hsl(210 85% 55%));
-  color: hsl(var(--primary-foreground));
-  border-color: hsl(var(--primary));
+  background: linear-gradient(90deg, hsl(0, 60%, 40%), hsl(0, 60%, 30%)); /* RMU Maroon */
+  color: white;
+  border-color: hsl(0, 60%, 35%);
 }
 /* Achievements Grid */
 .achievements-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1.5rem;
+  padding: 1rem;
+  background: linear-gradient(to bottom right, 
+    hsl(0, 60%, 99%) 0%, 
+    hsl(45, 65%, 99%) 100%
+  ); /* Very subtle RMU gradient */
+  border-radius: calc(var(--radius) * 1.5);
+  border: 1px solid hsl(45, 65%, 85%);
 }
 
 /* Category summary cards layout */
@@ -777,19 +818,28 @@ body {
   margin-top: 1.25rem;
 }
 .cat-card {
-  background: #fff;
+  background: linear-gradient(to bottom right, hsl(var(--card)), hsl(45, 65%, 98%)); /* RMU themed gradient */
+  border: 1px solid hsl(45, 65%, 70%); /* RMU Gold border */
+  border-left: 3px solid hsl(0, 60%, 35%); /* RMU Maroon accent */
   border-radius: 10px;
   padding: 18px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 6px 20px rgba(16,24,40,0.06);
+  box-shadow: 0 6px 20px rgba(139, 69, 19, 0.08); /* RMU maroon shadow */
   text-align: center;
+  transition: var(--transition-smooth);
+}
+
+.cat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(139, 69, 19, 0.12);
+  border-left-color: hsl(45, 65%, 60%); /* Gold accent on hover */
 }
 .cat-icon svg { width:44px; height:44px; stroke-width:1.2; }
-.cat-count { font-size:28px; font-weight:700; margin-top:10px; color:#111; }
-.cat-label { font-size:14px; color:#556; margin-top:6px; }
+.cat-count { font-size:28px; font-weight:700; margin-top:10px; color: hsl(0, 60%, 35%); } /* RMU Maroon */
+.cat-label { font-size:14px; color: hsl(0, 60%, 50%); margin-top:6px; font-family: 'Times New Roman', serif; } /* RMU styled text */
 
 /* Color variants for icons */
 .cat-card[data-key="academic"] .cat-icon svg { stroke:#2b8aef; fill:#eaf4ff; }
@@ -807,17 +857,19 @@ body {
 
 .achievement-card {
   background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
+  border: 1px solid hsl(45, 65%, 70%); /* RMU Gold border */
+  border-left: 4px solid hsl(0, 60%, 35%); /* RMU Maroon accent */
   border-radius: calc(var(--radius) * 2);
   padding: 1.5rem;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 4px 12px rgba(139, 69, 19, 0.08); /* RMU maroon shadow */
   transition: var(--transition-smooth);
   position: relative;
 }
 
 .achievement-card:hover {
-  box-shadow: var(--shadow-medium);
+  box-shadow: 0 8px 25px rgba(139, 69, 19, 0.15); /* Enhanced RMU maroon shadow */
   transform: translateY(-2px);
+  border-left-color: hsl(45, 65%, 60%); /* Gold accent on hover */
 }
 
 .achievement-header {
@@ -888,9 +940,10 @@ body {
 .achievement-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: hsl(var(--foreground));
+  color: hsl(0, 60%, 35%); /* RMU Maroon for titles */
   margin-bottom: 0.5rem;
   line-height: 1.4;
+  font-family: 'Times New Roman', serif;
 }
 
 .achievement-date {
@@ -916,19 +969,29 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  padding: 1rem;
+  background: linear-gradient(to bottom right, 
+    hsl(0, 60%, 99%) 0%, 
+    hsl(45, 65%, 99%) 100%
+  ); /* Very subtle RMU gradient */
+  border-radius: calc(var(--radius) * 1.5);
+  border: 1px solid hsl(45, 65%, 85%);
 }
 
 .reflection-card {
   background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
+  border: 1px solid hsl(45, 65%, 70%); /* RMU Gold border */
+  border-left: 4px solid hsl(0, 60%, 35%); /* RMU Maroon accent */
   border-radius: calc(var(--radius) * 2);
   padding: 1.5rem;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 4px 12px rgba(139, 69, 19, 0.08); /* RMU maroon shadow */
   transition: var(--transition-smooth);
 }
 
 .reflection-card:hover {
-  box-shadow: var(--shadow-medium);
+  box-shadow: 0 8px 25px rgba(139, 69, 19, 0.15); /* Enhanced RMU maroon shadow */
+  transform: translateY(-1px);
+  border-left-color: hsl(45, 65%, 60%); /* Gold accent on hover */
 }
 
 .reflection-header {
@@ -974,8 +1037,9 @@ body {
 .reflection-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: hsl(var(--foreground));
+  color: hsl(0, 60%, 35%); /* RMU Maroon for titles */
   margin-bottom: 0.5rem;
+  font-family: 'Times New Roman', serif;
 }
 
 .reflection-date {
@@ -1255,3 +1319,361 @@ body {
 }
 .attach-download:hover { background: hsl(var(--muted)); color: hsl(var(--foreground)); }
 .icon-download { stroke-width: 1.8; }
+
+/* RMU Portfolio Cover Page Styles */
+.rmu-portfolio-container {
+    background: hsl(var(--card));
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    border: 1px solid hsl(var(--border));
+    border-radius: calc(var(--radius) * 2);
+    font-family: 'Times New Roman', serif;
+    max-width: 64rem;
+    margin: 0 auto;
+    overflow: hidden;
+}
+
+/* Header Section */
+.rmu-header {
+    position: relative;
+    background: linear-gradient(to right, hsl(var(--background)), hsl(210, 15%, 90%, 0.3));
+    padding: 2rem;
+    border-bottom: 2px solid hsl(45, 65%, 60%);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 2rem;
+}
+
+.rmu-edit-controls {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    display: flex;
+    gap: 0.5rem;
+    z-index: 10;
+}
+
+.rmu-edit-button, .rmu-save-button, .rmu-cancel-button {
+    padding: 0.5rem 1rem;
+    border: 1px solid hsl(var(--border));
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    border-radius: 0.375rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.rmu-edit-button:hover {
+    background-color: hsl(45, 65%, 60%);
+    color: hsl(var(--foreground));
+}
+
+.rmu-edit-button.active, .rmu-save-button {
+    background-color: hsl(142, 71%, 45%);
+    color: hsl(0, 0%, 100%);
+    border-color: hsl(142, 71%, 45%);
+}
+
+.rmu-save-button:hover {
+    background-color: hsl(142, 71%, 40%);
+}
+
+.rmu-cancel-button {
+    background-color: hsl(0, 84%, 60%);
+    color: hsl(0, 0%, 100%);
+    border-color: hsl(0, 84%, 60%);
+}
+
+.rmu-cancel-button:hover {
+    background-color: hsl(0, 84%, 55%);
+}
+
+.rmu-change-photo-btn {
+    margin-top: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    border: 1px solid hsl(var(--primary));
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.rmu-change-photo-btn:hover {
+    background: hsl(var(--primary) / 0.9);
+}
+
+.rmu-change-photo-btn .icon {
+    width: 0.875rem;
+    height: 0.875rem;
+}
+
+.rmu-logo {
+    flex-shrink: 0;
+}
+
+.rmu-logo img {
+    width: 6rem;
+    height: 6rem;
+    object-fit: contain;
+}
+
+.rmu-title-section {
+    flex: 1;
+    text-align: center;
+    padding: 0 2rem;
+}
+
+.rmu-portfolio-title {
+    font-family: 'Times New Roman', serif;
+    font-size: 2.5rem;
+    font-weight: 600;
+    color: hsl(0, 60%, 35%);
+    line-height: 1.2;
+    font-weight: bold;
+}
+
+.rmu-profile-picture {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.rmu-profile-img {
+    width: 8rem;
+    height: 8rem;
+    border: 4px solid hsl(45, 65%, 60%);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.rmu-profile-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center center;
+}
+
+/* University Section */
+.rmu-university-section {
+    background-color: hsl(0, 60%, 35%, 0.05);
+    padding: 1.5rem;
+    border-bottom: 1px solid hsl(var(--border));
+    text-align: center;
+}
+
+.rmu-university-name {
+    font-size: 1.125rem;
+    font-weight: bold;
+    color: hsl(0, 60%, 35%);
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+/* Main Content */
+.rmu-main-content {
+    padding: 2rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+}
+
+.rmu-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.rmu-field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.rmu-field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.rmu-field {
+    display: flex;
+    flex-direction: column;
+}
+
+.rmu-field-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: hsl(var(--muted-foreground));
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.rmu-editable-field {
+    border: 1px solid transparent;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    background: transparent;
+    transition: all 0.2s ease;
+    min-height: 1.5em;
+    display: inline-block;
+    min-width: 200px;
+    outline: none;
+}
+
+.rmu-editable-field.cursor-pointer {
+    cursor: pointer;
+}
+
+.rmu-editable-field:hover {
+    border-color: hsl(45, 65%, 60%);
+    background: hsl(45, 65%, 60%, 0.05);
+}
+
+.rmu-editable-field:focus {
+    outline: none;
+    border-color: hsl(0, 60%, 35%);
+    background: hsl(0, 60%, 35%, 0.02);
+    box-shadow: 0 0 0 2px hsl(0, 60%, 35%, 0.1);
+}
+
+.rmu-editable-field input,
+.rmu-editable-field textarea {
+    width: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+    padding: 0;
+}
+
+.rmu-student-name {
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: hsl(var(--foreground));
+    font-weight: bold;
+}
+
+.rmu-detail-text {
+    font-size: 1.125rem;
+    font-weight: 500;
+    color: hsl(var(--foreground));
+    font-weight: bold;
+}
+
+.rmu-small-detail-text {
+    font-size: 1rem;
+    font-weight: 500;
+    color: hsl(var(--foreground));
+    font-weight: bold;
+}
+
+/* Professional Bio Section */
+.rmu-bio-section {
+    padding: 2rem;
+    border-top: 1px solid hsl(var(--border));
+    background-color: hsl(210, 15%, 90%, 0.2);
+}
+
+.rmu-bio-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: hsl(0, 60%, 35%);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 1rem;
+}
+
+.rmu-bio-content {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: hsl(var(--muted-foreground));
+    font-weight: medium;
+}
+
+.rmu-bio-content.multiline {
+    min-height: 4rem;
+    resize: vertical;
+}
+
+/* CMS Section */
+.rmu-cms-section {
+    padding: 1.5rem;
+    background-color: hsl(45, 65%, 60%, 0.1);
+    border-top: 1px solid hsl(45, 65%, 60%, 0.3);
+    text-align: center;
+}
+
+.rmu-cms-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background-color: hsl(0, 60%, 35%);
+    color: hsl(0, 0%, 100%);
+    border-radius: 0.5rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.rmu-cms-link:hover {
+    background-color: hsl(0, 60%, 31%);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Footer */
+.rmu-footer {
+    height: 0.75rem;
+    background: linear-gradient(to right, hsl(0, 60%, 35%), hsl(45, 65%, 60%), hsl(0, 60%, 35%));
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .rmu-header {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+        padding: 1.5rem;
+    }
+    
+    .rmu-title-section {
+        padding: 0;
+    }
+    
+    .rmu-main-content {
+        grid-template-columns: 1fr;
+        padding: 1.5rem;
+    }
+    
+    .rmu-field-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .rmu-logo img {
+        width: 4rem;
+        height: 4rem;
+    }
+    
+    .rmu-profile-img {
+        width: 6rem;
+        height: 6rem;
+    }
+    
+    .rmu-portfolio-title {
+        font-size: 2rem;
+    }
+}
