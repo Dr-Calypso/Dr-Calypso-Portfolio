@@ -37,108 +37,143 @@
         <!-- Personal Information Section -->
         <section id="personal" class="section active">
             <div class="container">
-                <div class="card">
-                    <div class="card-header">
-                        <h2 class="card-title">Personal Profile</h2>
-                        <p class="card-description">Your professional identity, contact details, and links</p>
-                        <div class="edit-controls">
-                            <button id="edit-personal" class="btn btn-outline">
+                <div class="rmu-portfolio-container">
+                    <!-- Header Section -->
+                    <div class="rmu-header">
+                        <div class="rmu-edit-controls">
+                            <button class="rmu-edit-button" id="edit-personal">Edit</button>
+                            <button id="save-personal" class="rmu-save-button" style="display:none;">Save</button>
+                            <button id="cancel-personal" class="rmu-cancel-button" style="display:none;">Cancel</button>
+                        </div>
+                        
+                        <div class="rmu-logo">
+                            <img src="RMUlogo.png" alt="RMU Logo">
+                        </div>
+                        
+                        <div class="rmu-title-section">
+                            <div class="rmu-editable-field rmu-portfolio-title" data-field="title">
+                                <span id="title-display">Abdul Haseeb's Medfolio</span>
+                                <input type="text" id="title" value="Abdul Haseeb's Medfolio" style="display:none;">
+                            </div>
+                        </div>
+                        
+                        <div class="rmu-profile-picture">
+                            <div class="rmu-profile-img">
+                                <img src="profile.jpg" alt="Profile" class="avatar-image">
+                                <div class="avatar-fallback" style="display:none;"></div>
+                            </div>
+                            <input type="file" id="profile-photo-input" accept="image/*" style="display:none;" />
+                            <button id="change-photo" class="rmu-change-photo-btn" style="display:none;">
                                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                                    <path d="m18.5 2.5 a2.828 2.828 0 1 1 4 4L12 16l-4 1 1-4 10.5-10.5z"/>
+                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                                    <circle cx="12" cy="13" r="4"/>
                                 </svg>
-                                Edit
-                            </button>
-                            <button id="save-personal" class="btn btn-success hidden">
-                                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                                    <polyline points="17,21 17,13 7,13 7,21"/>
-                                    <polyline points="7,3 7,8 15,8"/>
-                                </svg>
-                                Save
-                            </button>
-                            <button id="cancel-personal" class="btn btn-outline hidden">
-                                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                    <line x1="18" y1="6" x2="6" y2="18"/>
-                                    <line x1="6" y1="6" x2="18" y2="18"/>
-                                </svg>
-                                Cancel
+                                Change Photo
                             </button>
                         </div>
                     </div>
-                    <div class="card-content">
-                        <div class="profile-section">
-                                                                <div class="profile-image-container">
-                                                                <div class="avatar">
-    <img src=" https://github.com/Dr-Calypso/Dr-Calypso.github.io/blob/main/profile.jpg?raw=true " alt="Profile Picture" class="avatar-image">
-    <div class="avatar-fallback" style="display:none;"></div>
-</div>
-                                                                <input type="file" id="profile-photo-input" accept="image/*" style="display:none;" />
-                                                                <button id="change-photo" class="btn btn-outline btn-sm hidden">
-                                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                                        <circle cx="12" cy="13" r="4"/>
-                                    </svg>
-                                    Change Photo
-                                </button>
-                            </div>
-                            <div class="profile-info">
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label>Full Name</label>
+
+                    <!-- University Section -->
+                    <div class="rmu-university-section">
+                        <div class="rmu-university-name">RAWALPINDI MEDICAL UNIVERSITY, RAWALPINDI</div>
+                    </div>
+
+                    <!-- Main Content -->
+                    <div class="rmu-main-content">
+                        <!-- Left Column -->
+                        <div class="rmu-column">
+                            <div class="rmu-field-group">
+                                <div class="rmu-field">
+                                    <label class="rmu-field-label">Student Name</label>
+                                    <div class="rmu-editable-field rmu-student-name" data-field="studentName">
                                         <span id="firstName-display">Abdul Haseeb Ahmad</span>
                                         <input type="text" id="firstName" value="Abdul Haseeb Ahmad" style="display:none;">
                                     </div>
                                 </div>
-                                <div class="form-group">
-                                    <label>Professional Title</label>
-                                    <span id="title-display">MBBS RMU 52 Student | Year 1 (Roll no. 123)</span>
-                                    <input type="text" id="title" value="MBBS RMU 52 Student | Year 1 (Roll no.123)" style="display:none;">
-                                </div>
-                                <div class="form-group">
-                                    <label>Professional Bio</label>
-                                    <span id="bio-display">Passionate medical student dedicated 1. To impart evidence based research oriented medical education. 2. To provide best possible patient care. 3. To inculcate the values of mutual respect and ethical practice of medicine
-.</span>
-                                    <textarea id="bio" rows="4" style="display:none;">Passionate medical student dedicated 1. To impart evidence based research oriented medical education. 2. To provide best possible patient care. 3. To inculcate the values of mutual respect and ethical practice of medicine.</textarea>
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label>Email</label>
-                                        <span id="email-display">mbbs-52-123@rmur.edu.pk</span>
-                                        <input type="email" id="email" value="mbbs-52-123@rmur.edu.pk" style="display:none;">
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Phone</label>
-                                        <span id="phone-display">+92 3317735568</span>
-                                        <input type="tel" id="phone" value="+92 3317735568" style="display:none;">
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Location</label>
-                                        <span id="location-display">Boys Hostel, Rawalpindi Medical University, Tipu Road, Rawalpindi</span>
-                                        <input type="text" id="location" value="Boys Hostel, Rawalpindi Medical University, Tipu Road, Rawalpindi" style="display:none;">
+
+                                <div class="rmu-field">
+                                    <label class="rmu-field-label">Roll No</label>
+                                    <div class="rmu-editable-field rmu-detail-text" data-field="rollNo">
+                                        <span id="rollNo-display">123</span>
+                                        <input type="text" id="rollNo" value="123" style="display:none;">
                                     </div>
                                 </div>
-                                <div class="form-row" style="margin-top:0.75rem;">
-                                    <div class="form-group">
-                                        <label>LinkedIn</label>
-                                        <span id="linkedin-display">linkedin.com/in/abdul-haseeb-ahmad</span>
-                                        <input type="text" id="linkedin" value="linkedin.com/in/abdul-haseeb-ahmad" style="display:none;">
+
+                                <div class="rmu-field">
+                                    <label class="rmu-field-label">Registration No</label>
+                                    <div class="rmu-editable-field rmu-small-detail-text" data-field="registrationNo">
+                                        <span id="registrationNo-display">RMU-MBBS-2024-001</span>
+                                        <input type="text" id="registrationNo" value="RMU-MBBS-2024-001" style="display:none;">
                                     </div>
-                                    <div class="form-group" style="display:flex;align-items:center;justify-content:flex-start;gap:0.5rem;">
-                                        <!-- CMS Attendance quick link placed on same horizontal line as LinkedIn -->
-                                        <a id="cms-attendance" class="cms-attendance" href="https://cms.rmur.edu.pk/profile/attendance" target="_blank" rel="noopener noreferrer">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="margin-right:8px;">
-                                                <path d="M8 7V3h8v4" stroke-linecap="round" stroke-linejoin="round"/>
-                                                <rect x="3" y="7" width="18" height="13" rx="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                                <path d="M8 13h8" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </svg>
-                                            <span>CMS Attendance</span>
-                                        </a>
+                                </div>
+
+                                <div class="rmu-field">
+                                    <label class="rmu-field-label">Program Enrolled</label>
+                                    <div class="rmu-editable-field rmu-small-detail-text" data-field="programEnrolled">
+                                        <span id="programEnrolled-display">MBBS</span>
+                                        <input type="text" id="programEnrolled" value="MBBS" style="display:none;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column -->
+                        <div class="rmu-column">
+                            <div class="rmu-field-group">
+                                <div class="rmu-field">
+                                    <label class="rmu-field-label">Father's Name</label>
+                                    <div class="rmu-editable-field rmu-student-name" data-field="fatherName">
+                                        <span id="fatherName-display">Muhammad Athar</span>
+                                        <input type="text" id="fatherName" value="Muhammad Athar" style="display:none;">
+                                    </div>
+                                </div>
+
+                                <div class="rmu-field">
+                                    <label class="rmu-field-label">Email</label>
+                                    <div class="rmu-editable-field rmu-small-detail-text" data-field="email">
+                                        <span id="email-display">abdul.haseeb@student.rmu.edu.pk</span>
+                                        <input type="email" id="email" value="abdul.haseeb@student.rmu.edu.pk" style="display:none;">
+                                    </div>
+                                </div>
+
+                                <div class="rmu-field">
+                                    <label class="rmu-field-label">Mobile No</label>
+                                    <div class="rmu-editable-field rmu-small-detail-text" data-field="mobileNo">
+                                        <span id="phone-display">+92 300 1234567</span>
+                                        <input type="tel" id="phone" value="+92 300 1234567" style="display:none;">
+                                    </div>
+                                </div>
+                                
+                                <div class="rmu-field">
+                                    <label class="rmu-field-label">Session</label>
+                                    <div class="rmu-editable-field rmu-small-detail-text" data-field="session">
+                                        <span id="session-display">2024-25</span>
+                                        <input type="text" id="session" value="2024-25" style="display:none;">
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
+
+                    <!-- Professional Bio Section -->
+                    <div class="rmu-bio-section">
+                        <h3 class="rmu-bio-title">Professional Bio</h3>
+                        <div class="rmu-editable-field rmu-bio-content" data-field="professionalBio">
+                            <span id="bio-display">Passionate medical student dedicated 1. To impart evidence based research oriented medical education. 2. To provide best possible patient care. 3. To inculcate the values of mutual respect and ethical practice of medicine.</span>
+                            <textarea id="bio" rows="4" style="display:none;">Passionate medical student dedicated 1. To impart evidence based research oriented medical education. 2. To provide best possible patient care. 3. To inculcate the values of mutual respect and ethical practice of medicine.</textarea>
+                        </div>
+                    </div>
+
+                    <!-- CMS Attendance Section -->
+                    <div class="rmu-cms-section">
+                        <a id="cms-attendance" href="https://cms.rmur.edu.pk/profile/attendance" target="_blank" rel="noopener noreferrer" class="rmu-cms-link">
+                            <span>🔗</span>
+                            CMS Attendance Portal
+                        </a>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="rmu-footer"></div>
                 </div>
             </div>
         </section>
@@ -420,18 +455,18 @@
                 }
 
                 // Full debug details remain in console for developers
-                console.log('Debug: Loaded CSS links:', cssLinks);
-                console.log('Debug: Loaded script sources:', scriptSrcs);
-                console.log('Debug: portfolio.css presence (full href):', portfolioCssHref);
-                console.log('Debug: portfolio.js presence (full src):', portfolioJsHref);
+                console.debug('Debug: Loaded CSS links:', cssLinks);
+                console.debug('Debug: Loaded script sources:', scriptSrcs);
+                console.debug('Debug: portfolio.css presence (full href):', portfolioCssHref);
+                console.debug('Debug: portfolio.js presence (full src):', portfolioJsHref);
 
                 // Try fetching the repo JSON used by the app loader so you can verify GitHub Pages serves the updated file
                 try {
                     const resp = await fetch('./portfolio-data.json', { cache: 'no-store' });
-                    console.log('Debug: fetch ./portfolio-data.json status=', resp.status);
+                    console.debug('Debug: fetch ./portfolio-data.json status=', resp.status);
                     if (resp.ok) {
                         const text = await resp.text();
-                        console.log('Debug: portfolio-data.json preview (first 1000 chars):\n', text.slice(0,1000));
+                        console.debug('Debug: portfolio-data.json loaded successfully', text.length, 'bytes');
                         if (stamp) stamp.textContent += ` | repo JSON: OK (${text.length} bytes)`;
                     } else {
                         if (stamp) stamp.textContent += ` | repo JSON: HTTP ${resp.status}`;
@@ -560,4 +595,3 @@ window.addEventListener('load', () => {
 </script>
 </body>
 </html>
-
