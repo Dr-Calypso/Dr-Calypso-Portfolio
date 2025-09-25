@@ -49,15 +49,47 @@ class PortfolioApp {
   loadPersonalInfo() {
     try {
       const data = JSON.parse(localStorage.getItem('personalInfo') || '{}');
-      if (!data) return;
-  const fields = ['firstName','title','bio','email','phone','location'];
-      fields.forEach(id => {
-        const display = document.getElementById(id + '-display');
-        const input = document.getElementById(id);
-        if (display && typeof data[id] !== 'undefined') display.textContent = data[id];
-        if (input && typeof data[id] !== 'undefined') input.value = data[id];
+      
+      // Set default values if they don't exist
+      const defaults = {
+        firstName: 'Abdul Haseeb Ahmad',
+        title: "Abdul Haseeb's Medfolio",
+        bio: 'Passionate medical student dedicated 1. To impart evidence based research oriented medical education. 2. To provide best possible patient care. 3. To inculcate the values of mutual respect and ethical practice of medicine.',
+        rollNo: '123',
+        registrationNo: 'RMU-MBBS-2024-001',
+        programEnrolled: 'MBBS',
+        fatherName: 'Muhammad Athar',
+        email: 'abdul.haseeb@student.rmu.edu.pk',
+        phone: '+92 300 1234567',
+        session: '2024-25'
+      };
+      
+      // Merge defaults with existing data
+      const personalInfo = { ...defaults, ...data };
+      
+      // Updated field mapping for new RMU structure
+      const fieldMapping = {
+        'firstName': ['firstName-display', 'firstName'],
+        'title': ['title-display', 'title'],
+        'bio': ['bio-display', 'bio'],
+        'rollNo': ['rollNo-display', 'rollNo'],
+        'registrationNo': ['registrationNo-display', 'registrationNo'],
+        'programEnrolled': ['programEnrolled-display', 'programEnrolled'],
+        'fatherName': ['fatherName-display', 'fatherName'],
+        'email': ['email-display', 'email'],
+        'phone': ['phone-display', 'phone'],
+        'session': ['session-display', 'session']
+      };
+      
+      Object.keys(fieldMapping).forEach(key => {
+        const [displayId, inputId] = fieldMapping[key];
+        const display = document.getElementById(displayId);
+        const input = document.getElementById(inputId);
+        if (display) display.textContent = personalInfo[key];
+        if (input) input.value = personalInfo[key];
       });
-  // Load avatar if present
+      
+      // Load avatar if present
       const imgData = localStorage.getItem('profilePhoto');
       if (imgData) {
         const img = document.querySelector('.avatar-image');
@@ -66,12 +98,18 @@ class PortfolioApp {
         if (fallback) { fallback.style.display = 'none'; }
       } else {
         // Show initials fallback
-        const first = data.firstName || '';
-  const last = '';
+        const first = personalInfo.firstName || '';
+        const last = '';
         const initials = (first[0] || '') + (last[0] || '');
         const fallback = document.querySelector('.avatar-fallback');
         if (fallback) { fallback.textContent = initials; fallback.style.display = 'flex'; }
       }
+      
+      // Save the merged data back to localStorage if it was incomplete
+      if (Object.keys(data).length < Object.keys(defaults).length) {
+        localStorage.setItem('personalInfo', JSON.stringify(personalInfo));
+      }
+      
       // Ensure personal info display fields are linkified (emails, phones, urls)
       try { this.linkifyPersonalInfo(); } catch (e) { /* ignore */ }
     } catch (e) { console.warn('Failed to load personal info', e); }
@@ -155,7 +193,7 @@ class PortfolioApp {
   const savePersonalBtn = document.getElementById('save-personal');
   if (savePersonalBtn) savePersonalBtn.addEventListener('click', () => this.savePersonal());
   const cancelPersonalBtn = document.getElementById('cancel-personal');
-  if (cancelPersonalBtn) cancelPersonalBtn.addEventListener('click', () => this.toggleEditPersonal(false));
+  if (cancelPersonalBtn) cancelPersonalBtn.addEventListener('click', () => this.cancelPersonal());
     // Change photo wiring: open hidden file input
     const changePhotoBtn = document.getElementById('change-photo');
     const photoInput = document.getElementById('profile-photo-input');
@@ -164,18 +202,19 @@ class PortfolioApp {
         e.preventDefault();
         photoInput.click();
       });
-      photoInput.addEventListener('change', (ev) => {
+      photoInput.addEventListener('change', async (ev) => {
         const f = ev.target.files && ev.target.files[0];
         if (!f) return;
         // Resize image client-side to limit localStorage/Drive size before saving
-        this.resizeImage(f, 800, 0.8).then(dataUrl => {
+        try {
+          const dataUrl = await this.resizeImage(f, 800, 0.8);
           const img = document.querySelector('.avatar-image');
           const fallback = document.querySelector('.avatar-fallback');
           if (img) { img.src = dataUrl; img.style.display = 'block'; }
           if (fallback) { fallback.style.display = 'none'; }
           // Persist to localStorage
           try { localStorage.setItem('profilePhoto', dataUrl); } catch (err) { console.warn('Failed to persist profile photo', err); }
-        }).catch(err => {
+        } catch (err) {
           console.warn('Image resize failed, falling back to direct read', err);
           const reader = new FileReader();
           reader.onload = (e) => {
@@ -187,7 +226,7 @@ class PortfolioApp {
             try { localStorage.setItem('profilePhoto', dataUrl); } catch (err2) { console.warn('Failed to persist profile photo', err2); }
           };
           reader.readAsDataURL(f);
-        });
+        }
       });
     }
 
@@ -258,6 +297,128 @@ class PortfolioApp {
       }
     });
 
+    // RMU Editable Field Handling
+    this.initRmuEditableFields();
+
+  }
+  
+  // Initialize RMU editable fields functionality
+  initRmuEditableFields() {
+    let currentEditingElement = null;
+    let isRmuEditMode = false;
+    
+    // RMU Edit button functionality
+    const rmuEditBtn = document.getElementById('edit-personal');
+    if (rmuEditBtn) {
+      rmuEditBtn.addEventListener('click', () => {
+        this.toggleEditPersonal(true);
+      });
+    }
+    
+    const saveBtn = document.getElementById('save-personal');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => {
+        this.savePersonal();
+      });
+    }
+    
+    const cancelBtn = document.getElementById('cancel-personal');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        this.cancelPersonal();
+      });
+    }
+    
+    // Handle editable field clicks in edit mode
+    document.body.addEventListener('click', (e) => {
+      const editableField = e.target.closest('.rmu-editable-field[data-field]');
+      if (!editableField || !this.isEditing) return;
+      
+      const fieldName = editableField.dataset.field;
+      if (!fieldName) return;
+      
+      // If already editing this field, ignore
+      if (currentEditingElement === editableField) return;
+      
+      // Save current edit if switching fields
+      if (currentEditingElement) {
+        this.saveRmuFieldEdit(currentEditingElement);
+      }
+      
+      this.startRmuFieldEdit(editableField, fieldName);
+      currentEditingElement = editableField;
+    });
+    
+    // Handle clicks outside editable fields to save current edit
+    document.body.addEventListener('click', (e) => {
+      if (!this.isEditing || !currentEditingElement) return;
+      
+      const clickedField = e.target.closest('.rmu-editable-field[data-field]');
+      if (!clickedField || clickedField !== currentEditingElement) {
+        this.saveRmuFieldEdit(currentEditingElement);
+        currentEditingElement = null;
+      }
+    });
+  }
+  
+  // Start editing an RMU field
+  startRmuFieldEdit(fieldElement, fieldName) {
+    const span = fieldElement.querySelector('span');
+    const input = fieldElement.querySelector('input, textarea');
+    
+    if (!span || !input) return;
+    
+    // Show input, hide span
+    span.style.display = 'none';
+    input.style.display = 'block';
+    input.focus();
+    
+    // Select all text for easy replacement
+    if (input.select) input.select();
+    
+    // Handle escape key to cancel edit
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        this.cancelRmuFieldEdit(fieldElement);
+        input.removeEventListener('keydown', handleKeyDown);
+      } else if (e.key === 'Enter' && input.tagName !== 'TEXTAREA') {
+        this.saveRmuFieldEdit(fieldElement);
+        input.removeEventListener('keydown', handleKeyDown);
+      }
+    };
+    
+    input.addEventListener('keydown', handleKeyDown);
+  }
+  
+  // Save RMU field edit
+  saveRmuFieldEdit(fieldElement) {
+    const span = fieldElement.querySelector('span');
+    const input = fieldElement.querySelector('input, textarea');
+    
+    if (!span || !input) return;
+    
+    // Update span with new value (sanitize input)
+    const sanitizedValue = input.value.trim().replace(/\s+/g, ' ');
+    span.textContent = sanitizedValue;
+    
+    // Show span, hide input
+    input.style.display = 'none';
+    span.style.display = 'block';
+  }
+  
+  // Cancel RMU field edit
+  cancelRmuFieldEdit(fieldElement) {
+    const span = fieldElement.querySelector('span');
+    const input = fieldElement.querySelector('input, textarea');
+    
+    if (!span || !input) return;
+    
+    // Reset input to original value
+    input.value = span.textContent;
+    
+    // Show span, hide input
+    input.style.display = 'none';
+    span.style.display = 'block';
   }
 
   // Helper: resize an image file to a max dimension and return a data URL
@@ -512,16 +673,24 @@ class PortfolioApp {
   // Personal Info Management
   toggleEditPersonal(editing) {
     this.isEditing = editing;
-    // Toggle edit controls
-    runIfPresent('#edit-personal', (el) => el.classList.toggle('hidden', editing));
-    runIfPresent('#save-personal', (el) => el.classList.toggle('hidden', !editing));
-    runIfPresent('#cancel-personal', (el) => el.classList.toggle('hidden', !editing));
-    runIfPresent('#change-photo', (el) => el.classList.toggle('hidden', !editing));
+    
+    // Toggle edit controls visibility
+    const editBtn = document.getElementById('edit-personal');
+    const saveBtn = document.getElementById('save-personal');
+    const cancelBtn = document.getElementById('cancel-personal');
+    const changePhotoBtn = document.getElementById('change-photo');
+    
+    if (editBtn) editBtn.style.display = editing ? 'none' : 'block';
+    if (saveBtn) saveBtn.style.display = editing ? 'block' : 'none';
+    if (cancelBtn) cancelBtn.style.display = editing ? 'block' : 'none';
+    if (changePhotoBtn) changePhotoBtn.style.display = editing ? 'block' : 'none';
 
-    // Toggle display spans and input fields
+    // Toggle display spans and input fields for new structure
     const fields = [
-  'firstName', 'title', 'bio', 'email', 'phone', 'location'
+      'firstName', 'title', 'bio', 'rollNo', 'registrationNo', 'programEnrolled',
+      'fatherName', 'email', 'phone', 'session'
     ];
+    
     fields.forEach(id => {
       const input = document.getElementById(id);
       const display = document.getElementById(id + '-display');
@@ -535,14 +704,31 @@ class PortfolioApp {
         }
       }
     });
+
+    // Toggle cursor pointer class for editable fields
+    document.querySelectorAll('.rmu-editable-field').forEach(field => {
+      if (editing) {
+        field.classList.add('cursor-pointer');
+        field.title = 'Click to edit';
+      } else {
+        field.classList.remove('cursor-pointer');
+        field.title = '';
+      }
+    });
   }
 
   savePersonal() {
-    // Update display spans with new values
+    // Store original values for rollback
+    const originalData = JSON.parse(localStorage.getItem('personalInfo') || '{}');
+    
+    // Update display spans with new values for new structure
     const fields = [
-      'firstName', 'title', 'bio', 'email', 'phone', 'location'
+      'firstName', 'title', 'bio', 'rollNo', 'registrationNo', 'programEnrolled',
+      'fatherName', 'email', 'phone', 'session'
     ];
-    const saved = JSON.parse(localStorage.getItem('personalInfo') || '{}');
+    
+    const saved = {};
+    
     fields.forEach(id => {
       const input = document.getElementById(id);
       const display = document.getElementById(id + '-display');
@@ -551,9 +737,10 @@ class PortfolioApp {
         saved[id] = input.value;
       }
     });
+    
     // Update avatar initials
-    const firstName = document.getElementById('firstName').value || '';
-  const initials = (firstName[0] || '');
+    const firstName = document.getElementById('firstName')?.value || '';
+    const initials = (firstName[0] || '');
     const avatarFallback = document.querySelector('.avatar-fallback');
     if (avatarFallback) { avatarFallback.textContent = initials; }
 
@@ -566,12 +753,50 @@ class PortfolioApp {
     try { this.linkifyPersonalInfo(); } catch (e) { /* ignore */ }
   }
 
+  cancelPersonal() {
+    // Restore original values from localStorage or defaults
+    const originalData = JSON.parse(localStorage.getItem('personalInfo') || '{}');
+    const defaults = {
+      firstName: 'Abdul Haseeb Ahmad',
+      title: "Haseeb's Medfolio",
+      bio: 'Passionate medical student dedicated 1. To impart evidence based research oriented medical education. 2. To provide best possible patient care. 3. To inculcate the values of mutual respect and ethical practice of medicine.',
+      rollNo: '123',
+      registrationNo: 'RMU-MBBS-2024-001',
+      programEnrolled: 'MBBS',
+      fatherName: 'Muhammad Athar',
+      email: 'abdul.haseeb@student.rmu.edu.pk',
+      phone: '+92 300 1234567',
+      session: '2024-25'
+    };
+    
+    const restoreData = { ...defaults, ...originalData };
+    
+    // Reset input values to original
+    const fields = [
+      'firstName', 'title', 'bio', 'rollNo', 'registrationNo', 'programEnrolled',
+      'fatherName', 'email', 'phone', 'session'
+    ];
+    
+    fields.forEach(id => {
+      const input = document.getElementById(id);
+      if (input && restoreData[id] !== undefined) {
+        input.value = restoreData[id];
+      }
+    });
+    
+    this.toggleEditPersonal(false);
+    this.showToast('Changes cancelled', 'info');
+  }
+
   // Convert plain text URLs, emails, and phone numbers inside personal info display
   // spans into clickable anchors so they are interactive on the page and will
   // be preserved (as anchors) when exported to PDF.
   linkifyPersonalInfo() {
     try {
-      const rootIds = ['firstName-display','title-display','bio-display','email-display','phone-display','location-display'];
+      const rootIds = [
+        'firstName-display','title-display','bio-display','rollNo-display','registrationNo-display','programEnrolled-display',
+        'fatherName-display','email-display','phone-display','session-display'
+      ];
       const urlRegex = /(\b(?:https?:\/\/|www\.|[a-z0-9.-]+\.[a-z]{2,})(?:[^\s<>()]*))/gi;
       const emailRegex = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
       const phoneRegex = /(\+?\d[\d\s().-]{4,}\d)/g;
@@ -717,27 +942,33 @@ class PortfolioApp {
       if (!fileInput || !fileInput.files || fileInput.files.length === 0) return null;
       const files = Array.from(fileInput.files);
       // Read each file; for images use resizeImage to limit size
-      const readers = files.map(file => {
-        return new Promise(async (resolve) => {
-          try {
-            if (file.type.startsWith('image/')) {
-              // Use resizeImage to produce a JPEG data URL
-              try {
-                const data = await this.resizeImage(file, 800, 0.8);
-                resolve({ name: file.name, type: file.type, data });
-              } catch (e) {
-                // fallback to FileReader
+      const readers = files.map(async (file) => {
+        try {
+          if (file.type.startsWith('image/')) {
+            // Use resizeImage to produce a JPEG data URL
+            try {
+              const data = await this.resizeImage(file, 800, 0.8);
+              return { name: file.name, type: file.type, data };
+            } catch (e) {
+              // fallback to FileReader
+              return new Promise((resolve) => {
                 const r = new FileReader();
                 r.onload = (ev) => resolve({ name: file.name, type: file.type, data: ev.target.result });
+                r.onerror = () => resolve(null);
                 r.readAsDataURL(file);
-              }
-            } else {
+              });
+            }
+          } else {
+            return new Promise((resolve) => {
               const r = new FileReader();
               r.onload = (ev) => resolve({ name: file.name, type: file.type, data: ev.target.result });
+              r.onerror = () => resolve(null);
               r.readAsDataURL(file);
-            }
-          } catch (err) { resolve(null); }
-        });
+            });
+          }
+        } catch (err) { 
+          return null; 
+        }
       });
       const results = await Promise.all(readers);
       return allowMultiple ? results.filter(Boolean) : (results[0] || null);
@@ -1443,10 +1674,41 @@ class PortfolioApp {
       const pageHeight = pdf.internal.pageSize.getHeight();
       const margin = 28; // points
       const contentWidth = pageWidth - margin * 2;
-      let cursorY = margin;
+      const headerHeight = 50; // Reserve space for header
+      let cursorY = margin + headerHeight; // Start content below header
   // Track current page (start at 1). We'll increment when we add pages so we can
   // avoid inserting a blank page before the very first heading.
   let pageIndex = 1;
+
+      // Function to add RMU header to current page
+      const addRMUHeader = (pdf, pageIndex) => {
+        try {
+          // Set font and size for university name
+          pdf.setFont('times', 'bold');
+          pdf.setFontSize(16);
+          pdf.setTextColor(139, 69, 19); // RMU maroon color (approximate RGB)
+          
+          // Center the university name
+          const universityName = "RAWALPINDI MEDICAL UNIVERSITY";
+          const textWidth = pdf.getStringUnitWidth(universityName) * 16 / pdf.internal.scaleFactor;
+          const centerX = (pageWidth - textWidth) / 2;
+          
+          pdf.text(universityName, centerX, margin + 20);
+          
+          // Add a line below the header
+          pdf.setDrawColor(139, 69, 19); // Same maroon color
+          pdf.setLineWidth(1);
+          pdf.line(margin, margin + 35, pageWidth - margin, margin + 35);
+          
+          // Reset text color for content
+          pdf.setTextColor(0, 0, 0);
+        } catch (e) {
+          console.warn('Failed to add PDF header:', e);
+        }
+      };
+
+      // Add header to first page
+      addRMUHeader(pdf, pageIndex);
 
       // Color map for categories and statuses (approximate)
       const categoryColors = {
@@ -1674,7 +1936,12 @@ class PortfolioApp {
           if (node.dataset && node.dataset.pdfForcePageBreak === 'before') {
             // Only add a new page if current page already has content (cursorY > margin).
             // This prevents creating an extra blank page when the prior node already added a fresh page
-            if (cursorY > margin) { pdf.addPage(); pageIndex++; cursorY = margin; }
+            if (cursorY > margin + headerHeight) { 
+              pdf.addPage(); 
+              pageIndex++; 
+              addRMUHeader(pdf, pageIndex);
+              cursorY = margin + headerHeight; 
+            }
           }
         } catch (e) { /* ignore */ }
         // Ensure layout/styles settle. Replace broken images with placeholders so
@@ -1708,7 +1975,7 @@ class PortfolioApp {
         let pdfImgHeight = (pxHeight * pdfImgWidth) / pxWidth;
 
         // If this rendered node is extremely tall (taller than a single page), try to scale it down to fit one page
-        const usablePageHeight = pageHeight - margin * 2;
+        const usablePageHeight = pageHeight - margin * 2 - headerHeight;
         if (pdfImgHeight > usablePageHeight * 1.05) {
           // Scale down to fit the usable page height
           const scaleDownToFit = usablePageHeight / pdfImgHeight;
@@ -1718,7 +1985,7 @@ class PortfolioApp {
 
         // If this node was marked as the personal section, force it to fit into a single PDF page
         const isPersonal = node.dataset && node.dataset.pdfPersonal === 'true';
-        const maxSingleHeight = pageHeight - margin * 2;
+        const maxSingleHeight = pageHeight - margin * 2 - headerHeight;
         if (isPersonal) {
           if (pdfImgHeight > maxSingleHeight) {
             const scaleDown = maxSingleHeight / pdfImgHeight;
@@ -1726,16 +1993,26 @@ class PortfolioApp {
             pdfImgHeight = pdfImgHeight * scaleDown;
           }
           // Place personal on its own page (avoid slicing)
-          if (cursorY + pdfImgHeight > pageHeight - margin) { if (cursorY > margin) { pdf.addPage(); pageIndex++; cursorY = margin; } }
+          if (cursorY + pdfImgHeight > pageHeight - margin) { 
+            if (cursorY > margin + headerHeight) { 
+              pdf.addPage(); 
+              pageIndex++; 
+              addRMUHeader(pdf, pageIndex);
+              cursorY = margin + headerHeight; 
+            } 
+          }
           pdf.addImage(imgData, 'JPEG', margin, cursorY, pdfImgWidth, pdfImgHeight);
           // ensure next content starts on fresh page
-          pdf.addPage(); pageIndex++; cursorY = margin;
+          pdf.addPage(); 
+          pageIndex++; 
+          addRMUHeader(pdf, pageIndex);
+          cursorY = margin + headerHeight;
           try { replacedImgs.forEach(r => { r.img.src = r.origSrc; r.img.srcset = r.origSrcset || ''; }); } catch (e) {}
           continue;
         }
 
         // If the rendered node is taller than a page, slice the canvas vertically into page-sized strips
-        const maxContentHeight = pageHeight - margin - margin; // usable height
+        const maxContentHeight = pageHeight - margin - margin - headerHeight; // usable height
         const pageScale = pdfImgHeight / pxHeight; // points per pixel vertically
         // Compute available remaining height on current page
         const remainingHeight = pageHeight - margin - cursorY;
@@ -1744,13 +2021,21 @@ class PortfolioApp {
         if (looksLikeEntry && pdfImgHeight > remainingHeight) {
           // Move the whole entry to the next page if it fits there, otherwise we'll slice only when the entry itself is larger than a page
           if (pdfImgHeight <= usablePageHeight) {
-            pdf.addPage(); pageIndex++; cursorY = margin;
+            pdf.addPage(); 
+            pageIndex++; 
+            addRMUHeader(pdf, pageIndex);
+            cursorY = margin + headerHeight;
           }
         }
 
         if (pdfImgHeight <= pageHeight - margin - cursorY) {
           // fits in remaining space (after possible page move above)
-          if (cursorY + pdfImgHeight > pageHeight - margin) { pdf.addPage(); pageIndex++; cursorY = margin; }
+          if (cursorY + pdfImgHeight > pageHeight - margin) { 
+            pdf.addPage(); 
+            pageIndex++; 
+            addRMUHeader(pdf, pageIndex);
+            cursorY = margin + headerHeight; 
+          }
           pdf.addImage(imgData, 'JPEG', margin, cursorY, pdfImgWidth, pdfImgHeight);
 
           // add links for anchors
@@ -1841,7 +2126,12 @@ class PortfolioApp {
             const sliceData = slice.toDataURL('image/jpeg', 0.95);
             const slicePdfH = (hPx * pdfImgWidth) / pxWidth;
 
-            if (cursorY + slicePdfH > pageHeight - margin) { pdf.addPage(); pageIndex++; cursorY = margin; }
+            if (cursorY + slicePdfH > pageHeight - margin) { 
+              pdf.addPage(); 
+              pageIndex++; 
+              addRMUHeader(pdf, pageIndex);
+              cursorY = margin + headerHeight; 
+            }
             pdf.addImage(sliceData, 'JPEG', margin, cursorY, pdfImgWidth, slicePdfH);
 
             // Add link annotations that fall within this slice
@@ -1868,7 +2158,12 @@ class PortfolioApp {
             // advance
             sliceTop += hPx;
             // if there is more content, start a new page
-            if (sliceTop < canvas.height) { pdf.addPage(); pageIndex++; cursorY = margin; }
+            if (sliceTop < canvas.height) { 
+              pdf.addPage(); 
+              pageIndex++; 
+              addRMUHeader(pdf, pageIndex);
+              cursorY = margin + headerHeight; 
+            }
           }
         }
         // restore any replaced images after rendering this node
