@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Abdul Haseeb Ahmad - Medical Portfolio</title>
     <meta name="description" content="Professional medical portfolio of Abdul Haseeb Ahmad, MBBS student specializing in internal medicine and cardiology.">
-    <link rel="stylesheet" href="portfolio.css?v=20250923.1">
+    <link rel="stylesheet" href="portfolio.css?v=20250925.2">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
         <script src="https://apis.google.com/js/api.js"></script>
         <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -21,7 +21,7 @@
                 <h1>Medical Portfolio</h1>
                 <p>Abdul Haseeb Ahmad</p>
                 <!-- Build/version stamp to help confirm deployed changes -->
-                <div id="build-version" style="font-size:12px;color:var(--muted-foreground);margin-top:4px;">v2025.09.23-1</div>
+                <div id="build-version" style="font-size:12px;color:var(--muted-foreground);margin-top:4px;">v2025.09.25-1</div>
             </div>
             <nav class="nav-menu">
                 <button class="nav-item active" data-section="personal">Personal Info</button>
@@ -38,138 +38,127 @@
         <section id="personal" class="section active">
             <div class="container">
                 <div class="rmu-portfolio-container">
-                    <!-- Header Section -->
-                    <div class="rmu-header">
+                    <!-- Modern 3-Column Layout -->
+                    <div class="rmu-modern-layout">
+                        <!-- Edit Controls -->
                         <div class="rmu-edit-controls">
                             <button class="rmu-edit-button" id="edit-personal">Edit</button>
                             <button id="save-personal" class="rmu-save-button" style="display:none;">Save</button>
                             <button id="cancel-personal" class="rmu-cancel-button" style="display:none;">Cancel</button>
                         </div>
                         
-                        <div class="rmu-logo">
-                            <img src="RMUlogo.png" alt="RMU Logo">
-                        </div>
-                        
-                        <div class="rmu-title-section">
-                            <div class="rmu-editable-field rmu-portfolio-title" data-field="title">
-                                <span id="title-display">Abdul Haseeb's Medfolio</span>
-                                <input type="text" id="title" value="Abdul Haseeb's Medfolio" style="display:none;">
+                        <!-- Main Content Area (Left 2 Columns) -->
+                        <div class="rmu-content-area">
+                            <!-- Header Section with Logo and Title -->
+                            <div class="rmu-header-modern">
+                                <div class="rmu-logo-section">
+                                    <img src="RMUlogo.png" alt="RMU Logo" class="rmu-logo-modern">
+                                    <div class="rmu-title-modern">
+                                        <div class="rmu-editable-field rmu-portfolio-title" data-field="title">
+                                            <span id="title-display">Abdul Haseeb's Medfolio</span>
+                                            <input type="text" id="title" value="Abdul Haseeb's Medfolio" style="display:none;">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Personal Information Fields (2 Columns) -->
+                            <div class="rmu-fields-container">
+                                <!-- Left Column -->
+                                <div class="rmu-field-column">
+                                    <div class="rmu-field">
+                                        <label class="rmu-field-label">Student Name</label>
+                                        <div class="rmu-editable-field rmu-student-name" data-field="studentName">
+                                            <span id="firstName-display">Abdul Haseeb Ahmad</span>
+                                            <input type="text" id="firstName" value="Abdul Haseeb Ahmad" style="display:none;">
+                                        </div>
+                                    </div>
+
+                                    <div class="rmu-field">
+                                        <label class="rmu-field-label">Roll No</label>
+                                        <div class="rmu-editable-field rmu-detail-text" data-field="rollNo">
+                                            <span id="rollNo-display">123</span>
+                                            <input type="text" id="rollNo" value="123" style="display:none;">
+                                        </div>
+                                    </div>
+
+                                    <div class="rmu-field">
+                                        <label class="rmu-field-label">Registration No</label>
+                                        <div class="rmu-editable-field rmu-small-detail-text" data-field="registrationNo">
+                                            <span id="registrationNo-display">RMU-MBBS-2024-001</span>
+                                            <input type="text" id="registrationNo" value="RMU-MBBS-2024-001" style="display:none;">
+                                        </div>
+                                    </div>
+
+                                    <div class="rmu-field">
+                                        <label class="rmu-field-label">Program Enrolled</label>
+                                        <div class="rmu-editable-field rmu-small-detail-text" data-field="programEnrolled">
+                                            <span id="programEnrolled-display">MBBS</span>
+                                            <input type="text" id="programEnrolled" value="MBBS" style="display:none;">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Right Column -->
+                                <div class="rmu-field-column">
+                                    <div class="rmu-field">
+                                        <label class="rmu-field-label">Father's Name</label>
+                                        <div class="rmu-editable-field rmu-student-name" data-field="fatherName">
+                                            <span id="fatherName-display">Muhammad Athar</span>
+                                            <input type="text" id="fatherName" value="Muhammad Athar" style="display:none;">
+                                        </div>
+                                    </div>
+
+                                    <div class="rmu-field">
+                                        <label class="rmu-field-label">Email</label>
+                                        <div class="rmu-editable-field rmu-small-detail-text" data-field="email">
+                                            <span id="email-display">abdul.haseeb@student.rmu.edu.pk</span>
+                                            <input type="email" id="email" value="abdul.haseeb@student.rmu.edu.pk" style="display:none;">
+                                        </div>
+                                    </div>
+
+                                    <div class="rmu-field">
+                                        <label class="rmu-field-label">Mobile No</label>
+                                        <div class="rmu-editable-field rmu-small-detail-text" data-field="mobileNo">
+                                            <span id="phone-display">+92 300 1234567</span>
+                                            <input type="tel" id="phone" value="+92 300 1234567" style="display:none;">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="rmu-field">
+                                        <label class="rmu-field-label">Session</label>
+                                        <div class="rmu-editable-field rmu-small-detail-text" data-field="session">
+                                            <span id="session-display">2024-25</span>
+                                            <input type="text" id="session" value="2024-25" style="display:none;">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Professional Bio Section (Full Width) -->
+                            <div class="rmu-bio-section-modern">
+                                <h3 class="rmu-bio-title">Professional Bio</h3>
+                                <div class="rmu-editable-field rmu-bio-content" data-field="professionalBio">
+                                    <span id="bio-display">Passionate medical student dedicated 1. To impart evidence based research oriented medical education. 2. To provide best possible patient care. 3. To inculcate the values of mutual respect and ethical practice of medicine.</span>
+                                    <textarea id="bio" rows="4" style="display:none;">Passionate medical student dedicated 1. To impart evidence based research oriented medical education. 2. To provide best possible patient care. 3. To inculcate the values of mutual respect and ethical practice of medicine.</textarea>
+                                </div>
                             </div>
                         </div>
                         
-                        <div class="rmu-profile-picture">
-                            <div class="rmu-profile-img">
-                                <img src="profile.jpg" alt="Profile" class="avatar-image">
-                                <div class="avatar-fallback" style="display:none;"></div>
-                            </div>
-                            <input type="file" id="profile-photo-input" accept="image/*" style="display:none;" />
-                            <button id="change-photo" class="rmu-change-photo-btn" style="display:none;">
-                                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                                    <circle cx="12" cy="13" r="4"/>
-                                </svg>
-                                Change Photo
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- University Section -->
-                    <div class="rmu-university-section">
-                        <div class="rmu-university-name">RAWALPINDI MEDICAL UNIVERSITY, RAWALPINDI</div>
-                    </div>
-
-                    <!-- Main Content -->
-                    <div class="rmu-main-content">
-                        <!-- Left Column -->
-                        <div class="rmu-column">
-                            <div class="rmu-field-group">
-                                <div class="rmu-field">
-                                    <label class="rmu-field-label">Student Name</label>
-                                    <div class="rmu-editable-field rmu-student-name" data-field="studentName">
-                                        <span id="firstName-display">Abdul Haseeb Ahmad</span>
-                                        <input type="text" id="firstName" value="Abdul Haseeb Ahmad" style="display:none;">
-                                    </div>
-                                </div>
-
-                                <div class="rmu-field">
-                                    <label class="rmu-field-label">Roll No</label>
-                                    <div class="rmu-editable-field rmu-detail-text" data-field="rollNo">
-                                        <span id="rollNo-display">123</span>
-                                        <input type="text" id="rollNo" value="123" style="display:none;">
-                                    </div>
-                                </div>
-
-                                <div class="rmu-field">
-                                    <label class="rmu-field-label">Registration No</label>
-                                    <div class="rmu-editable-field rmu-small-detail-text" data-field="registrationNo">
-                                        <span id="registrationNo-display">RMU-MBBS-2024-001</span>
-                                        <input type="text" id="registrationNo" value="RMU-MBBS-2024-001" style="display:none;">
-                                    </div>
-                                </div>
-
-                                <div class="rmu-field">
-                                    <label class="rmu-field-label">Program Enrolled</label>
-                                    <div class="rmu-editable-field rmu-small-detail-text" data-field="programEnrolled">
-                                        <span id="programEnrolled-display">MBBS</span>
-                                        <input type="text" id="programEnrolled" value="MBBS" style="display:none;">
-                                    </div>
-                                </div>
+                        <!-- Profile Picture Column (Right) -->
+                        <div class="rmu-profile-column">
+                            <div class="rmu-profile-picture-modern">
+                                <img src="profile.png" alt="Profile" class="rmu-profile-img-modern">
+                                <input type="file" id="profile-photo-input" accept="image/*" style="display:none;" />
+                                <button id="change-photo" class="rmu-change-photo-btn-modern" style="display:none;">
+                                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                                        <circle cx="12" cy="13" r="4"/>
+                                    </svg>
+                                    Change Photo
+                                </button>
                             </div>
                         </div>
-
-                        <!-- Right Column -->
-                        <div class="rmu-column">
-                            <div class="rmu-field-group">
-                                <div class="rmu-field">
-                                    <label class="rmu-field-label">Father's Name</label>
-                                    <div class="rmu-editable-field rmu-student-name" data-field="fatherName">
-                                        <span id="fatherName-display">Muhammad Athar</span>
-                                        <input type="text" id="fatherName" value="Muhammad Athar" style="display:none;">
-                                    </div>
-                                </div>
-
-                                <div class="rmu-field">
-                                    <label class="rmu-field-label">Email</label>
-                                    <div class="rmu-editable-field rmu-small-detail-text" data-field="email">
-                                        <span id="email-display">abdul.haseeb@student.rmu.edu.pk</span>
-                                        <input type="email" id="email" value="abdul.haseeb@student.rmu.edu.pk" style="display:none;">
-                                    </div>
-                                </div>
-
-                                <div class="rmu-field">
-                                    <label class="rmu-field-label">Mobile No</label>
-                                    <div class="rmu-editable-field rmu-small-detail-text" data-field="mobileNo">
-                                        <span id="phone-display">+92 300 1234567</span>
-                                        <input type="tel" id="phone" value="+92 300 1234567" style="display:none;">
-                                    </div>
-                                </div>
-                                
-                                <div class="rmu-field">
-                                    <label class="rmu-field-label">Session</label>
-                                    <div class="rmu-editable-field rmu-small-detail-text" data-field="session">
-                                        <span id="session-display">2024-25</span>
-                                        <input type="text" id="session" value="2024-25" style="display:none;">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Professional Bio Section -->
-                    <div class="rmu-bio-section">
-                        <h3 class="rmu-bio-title">Professional Bio</h3>
-                        <div class="rmu-editable-field rmu-bio-content" data-field="professionalBio">
-                            <span id="bio-display">Passionate medical student dedicated 1. To impart evidence based research oriented medical education. 2. To provide best possible patient care. 3. To inculcate the values of mutual respect and ethical practice of medicine.</span>
-                            <textarea id="bio" rows="4" style="display:none;">Passionate medical student dedicated 1. To impart evidence based research oriented medical education. 2. To provide best possible patient care. 3. To inculcate the values of mutual respect and ethical practice of medicine.</textarea>
-                        </div>
-                    </div>
-
-                    <!-- CMS Attendance Section -->
-                    <div class="rmu-cms-section">
-                        <a id="cms-attendance" href="https://cms.rmur.edu.pk/profile/attendance" target="_blank" rel="noopener noreferrer" class="rmu-cms-link">
-                            <span>🔗</span>
-                            CMS Attendance Portal
-                        </a>
                     </div>
 
                     <!-- Footer -->
@@ -435,7 +424,7 @@
     <!-- html2canvas and jsPDF for client-side export to PDF (load libraries first) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="portfolio.js?v=20250923.1"></script>
+    <script src="portfolio.js?v=20250925.3"></script>
     <script>
         // Debug helper: list CSS/JS hrefs and explicitly report whether the expected files loaded
         (async function(){
@@ -483,14 +472,21 @@
     </script>
 <!-- Auth status UI for GIS -->
 <div id="auth-status" style="position:fixed;top:10px;right:180px;z-index:9999;background:#fff;padding:6px;border:1px solid #ccc;border-radius:6px;display:none;font-size:13px;"></div>
+<!-- Global Loading Bar (styles provided in portfolio.css) -->
+<div id="global-loading-bar"><div class="glb-progress"></div></div>
 <button id="authorize_button" style="display:block;position:fixed;top:10px;right:10px;z-index:9999;">Sign in with Google</button>
 <button id="signout_button" style="display:none;position:fixed;top:40px;right:10px;z-index:9999;">Sign out</button>
 <button id="save-drive" onclick="app.saveToDrive()" style="display:none;position:fixed;top:70px;right:10px;z-index:9999;">Save to Drive</button>
 <button id="load-drive" onclick="app.loadFromDrive()" style="display:none;position:fixed;top:100px;right:10px;z-index:9999;">Load from Drive</button>
+<button id="export-json" onclick="app.exportPortfolioJson()" style="display:none;position:fixed;top:130px;right:10px;z-index:9999;">Export JSON</button>
+<button id="import-json" onclick="document.getElementById('import-json-input').click()" style="display:none;position:fixed;top:160px;right:10px;z-index:9999;">Import JSON</button>
+<input type="file" id="import-json-input" accept="application/json" style="display:none" />
+<button id="drive-selftest" onclick="app.runDriveSelfTest()" style="display:none;position:fixed;top:190px;right:10px;z-index:9999;">Test Drive Sync</button>
 <script>
 // Google Identity Services (GIS) + gapi.client integration
 const CLIENT_ID = '230626308317-ts08shmn77745hq81ghu5q7e2s2i0gf9.apps.googleusercontent.com';
-const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+// Minimal scope: appDataFolder only (hidden per-user storage). Legacy migration handled manually via Import JSON.
+const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
 
 let tokenClient;
 let accessToken = null;
@@ -504,7 +500,7 @@ function initializeGisAndGapi() {
     tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPES,
-        callback: (tokenResponse) => {
+        callback: async (tokenResponse) => {
             if (tokenResponse.error) {
                 console.error('Token error', tokenResponse);
                 return;
@@ -512,8 +508,18 @@ function initializeGisAndGapi() {
             accessToken = tokenResponse.access_token;
             // Initialize gapi.client with the token
             gapi.client.setToken({access_token: accessToken});
-            console.log('Access token set on gapi.client');
+            console.log('Access token set on gapi.client - User authenticated with appDataFolder scope');
             updateAuthUIStateGIS(true);
+            
+            // Automatically load user's portfolio data from their private appDataFolder
+            try {
+                if (window.app && typeof window.app.loadFromDrive === 'function') {
+                    console.log('Auto-loading user portfolio from appDataFolder...');
+                    await window.app.loadFromDrive();
+                }
+            } catch (e) {
+                console.warn('Failed to auto-load portfolio on sign-in:', e);
+            }
         }
     });
 
@@ -564,12 +570,29 @@ function updateAuthUIStateGIS(signedIn) {
     const signOutBtn = document.getElementById('signout_button');
     const saveBtn = document.getElementById('save-drive');
     const loadBtn = document.getElementById('load-drive');
+    const exportBtn = document.getElementById('export-json');
+    const importBtn = document.getElementById('import-json');
+    const importInput = document.getElementById('import-json-input');
+    const selftestBtn = document.getElementById('drive-selftest');
     if (signedIn) {
         if (statusDiv) { statusDiv.innerText = 'Signed in (Drive access granted)'; statusDiv.style.display = 'block'; }
         if (authBtn) { authBtn.style.display = 'none'; }
         if (signOutBtn) { signOutBtn.style.display = 'inline-block'; }
         if (saveBtn) { saveBtn.style.setProperty('display','inline-block','important'); }
         if (loadBtn) { loadBtn.style.setProperty('display','inline-block','important'); }
+        if (exportBtn) { exportBtn.style.setProperty('display','inline-block','important'); }
+        if (importBtn) { importBtn.style.setProperty('display','inline-block','important'); }
+        if (selftestBtn) { selftestBtn.style.setProperty('display','inline-block','important'); }
+        if (importInput && !importInput._bound) {
+            importInput.addEventListener('change', (e)=>{
+                const file = e.target.files && e.target.files[0];
+                if (file && window.app && typeof window.app.handleImportJsonFile === 'function') {
+                    window.app.handleImportJsonFile(file);
+                    e.target.value = '';
+                }
+            });
+            importInput._bound = true;
+        }
         console.log('Auth UI updated: signedIn true - save/load buttons shown (forced)');
     } else {
         if (statusDiv) { statusDiv.style.display = 'none'; }
@@ -577,6 +600,9 @@ function updateAuthUIStateGIS(signedIn) {
         if (signOutBtn) { signOutBtn.style.display = 'none'; }
         if (saveBtn) { saveBtn.style.setProperty('display','none','important'); }
         if (loadBtn) { loadBtn.style.setProperty('display','none','important'); }
+        if (exportBtn) { exportBtn.style.setProperty('display','none','important'); }
+        if (importBtn) { importBtn.style.setProperty('display','none','important'); }
+        if (selftestBtn) { selftestBtn.style.setProperty('display','none','important'); }
         console.log('Auth UI updated: signedIn false - save/load buttons hidden (forced)');
     }
 }
