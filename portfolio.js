@@ -1,3 +1,34 @@
+// ==================================================================================
+// ABDUL HASEEB AHMAD - MEDICAL PORTFOLIO (STANDALONE VERSION)
+// ==================================================================================
+// This portfolio application now includes all essential data embedded directly 
+// in the code for instant loading. The five core files provide complete functionality:
+// 
+// REQUIRED FILES (standalone operation):
+// 1. portfolio.html - Main HTML structure with profile.png reference  
+// 2. portfolio.css - Complete styling and responsive layout
+// 3. portfolio.js - Application logic with embedded achievements & reflections
+// 4. profile.png - Default profile picture (transparent PNG supported)
+// 5. RMUlogo.png - University logo for branding
+//
+// FEATURES:
+// - Instant load with embedded achievements and reflections data
+// - PNG transparency fully supported throughout the application
+// - Google Drive sync capabilities preserved for updates
+// - PDF export with proper image handling and no empty space
+// - Responsive layout with flipped profile/content positioning  
+// - All CRUD operations for achievements and reflections
+// - Automatic JSON loading from repository (if portfolio-data.json present)
+//
+// DATA FLOW:
+// 1. Page loads instantly with embedded data from loadSampleData()
+// 2. If portfolio-data.json exists in same directory, it overrides embedded data
+// 3. localStorage used for temporary edits and Google Drive sync
+// 4. profile.png used by default, localStorage can override with uploaded photos
+//
+// VERSION: v2025.09.25-1 (Standalone with embedded data)
+// ==================================================================================
+
 // Portfolio JavaScript - Vanilla JS Implementation
 
 // Safe DOM query helpers: use these to avoid throwing when elements are missing
@@ -35,6 +66,67 @@ class PortfolioApp {
     
     this.init();
     this.loadSampleData();
+    // Render the loaded data immediately for instant display
+    this.renderAchievements();
+    this.renderReflections();
+    this.updateLinkedAchievements();
+  }
+
+  // Loading bar helpers ----------------------------------------------------
+  _getLoadingBarEl() {
+    return document.getElementById('global-loading-bar');
+  }
+  showLoadingBar() {
+    try {
+      if (this._busy) return; // already busy, prevent stacking
+      this._busy = true;
+      const bar = this._getLoadingBarEl();
+      if (!bar) return;
+      bar.classList.remove('fade-out');
+      bar.style.display = 'block';
+      const inner = bar.querySelector('.glb-progress');
+      if (inner) {
+        inner.style.width = '0%';
+        // Progressive animation to simulate progress
+        let p = 0;
+        if (inner._timer) { clearInterval(inner._timer); }
+        inner._timer = setInterval(()=>{
+          // Ease towards 90% max until completion
+          if (p < 90) {
+            p += Math.max(0.5, (90 - p) * 0.07);
+            inner.style.width = p.toFixed(2) + '%';
+          }
+        }, 120);
+      }
+      // Disable interactive buttons to prevent queueing multiple tasks
+      const ids = ['save-drive','load-drive','export-json','import-json','drive-selftest'];
+      const exportPdfBtn = document.querySelector('#export-pdf-btn, button[data-action="export-pdf"]');
+      ids.forEach(id=>{ const el=document.getElementById(id); if (el){ el._prevDisabled = el.disabled; el.disabled=true; el.classList.add('busy-disabled'); } });
+      if (exportPdfBtn) { exportPdfBtn._prevDisabled = exportPdfBtn.disabled; exportPdfBtn.disabled = true; exportPdfBtn.classList.add('busy-disabled'); }
+    } catch(e) { /* ignore */ }
+  }
+  hideLoadingBar(success=true) {
+    try {
+      const bar = this._getLoadingBarEl();
+      if (!bar) return;
+      const inner = bar.querySelector('.glb-progress');
+      if (inner) {
+        if (inner._timer) { clearInterval(inner._timer); inner._timer = null; }
+        // Fill to 100% quickly
+        inner.style.width = '100%';
+      }
+      // Small delay for visual completion
+      setTimeout(()=>{
+        bar.classList.add('fade-out');
+        setTimeout(()=>{ bar.style.display='none'; bar.classList.remove('fade-out'); }, 380);
+      }, success ? 120 : 0);
+      // Re-enable buttons
+      const ids = ['save-drive','load-drive','export-json','import-json','drive-selftest'];
+      const exportPdfBtn = document.querySelector('#export-pdf-btn, button[data-action="export-pdf"]');
+      ids.forEach(id=>{ const el=document.getElementById(id); if (el){ el.disabled = !!el._prevDisabled; el.classList.remove('busy-disabled'); delete el._prevDisabled; } });
+      if (exportPdfBtn) { exportPdfBtn.disabled = !!exportPdfBtn._prevDisabled; exportPdfBtn.classList.remove('busy-disabled'); delete exportPdfBtn._prevDisabled; }
+      this._busy = false;
+    } catch(e) { /* ignore */ }
   }
 
   init() {
@@ -89,25 +181,38 @@ class PortfolioApp {
         if (input) input.value = personalInfo[key];
       });
       
-      // Load avatar if present
+      // Load profile photo - prioritize localStorage for uploaded photos, otherwise use static profile.png
       const imgData = localStorage.getItem('profilePhoto');
-      if (imgData) {
-        const img = document.querySelector('.avatar-image');
-        const fallback = document.querySelector('.avatar-fallback');
-        if (img) { img.src = imgData; img.style.display = 'block'; }
-        if (fallback) { fallback.style.display = 'none'; }
-      } else {
-        // Show initials fallback
-        const first = personalInfo.firstName || '';
-        const last = '';
-        const initials = (first[0] || '') + (last[0] || '');
-        const fallback = document.querySelector('.avatar-fallback');
-        if (fallback) { fallback.textContent = initials; fallback.style.display = 'flex'; }
+      const img = document.querySelector('.rmu-profile-img-modern');
+      if (img) {
+        if (imgData) {
+          // Use uploaded photo from localStorage
+          img.src = imgData;
+          img.onload = () => this.optimizeProfileImageFit(img);
+        } else {
+          // Use default static profile.png file (already set in HTML)
+          // Ensure it's visible and apply optimization when loaded
+          img.style.display = 'block';
+          
+          // Ensure transparency is preserved for PNG files
+          if (img.src.toLowerCase().includes('.png')) {
+            img.style.backgroundColor = 'transparent';
+            img.style.background = 'transparent';
+          }
+          
+          if (img.complete && img.naturalWidth > 0) {
+            this.optimizeProfileImageFit(img);
+          } else {
+            img.onload = () => this.optimizeProfileImageFit(img);
+          }
+        }
       }
       
       // Save the merged data back to localStorage if it was incomplete
       if (Object.keys(data).length < Object.keys(defaults).length) {
-        localStorage.setItem('personalInfo', JSON.stringify(personalInfo));
+        if (!this.safeSetLocalStorage('personalInfo', personalInfo)) {
+          console.warn('Failed to save personal info due to storage limits');
+        }
       }
       
       // Ensure personal info display fields are linkified (emails, phones, urls)
@@ -208,21 +313,30 @@ class PortfolioApp {
         // Resize image client-side to limit localStorage/Drive size before saving
         try {
           const dataUrl = await this.resizeImage(f, 800, 0.8);
-          const img = document.querySelector('.avatar-image');
-          const fallback = document.querySelector('.avatar-fallback');
-          if (img) { img.src = dataUrl; img.style.display = 'block'; }
-          if (fallback) { fallback.style.display = 'none'; }
-          // Persist to localStorage
-          try { localStorage.setItem('profilePhoto', dataUrl); } catch (err) { console.warn('Failed to persist profile photo', err); }
+          const img = document.querySelector('.rmu-profile-img-modern');
+          if (img) { 
+            img.src = dataUrl; 
+            img.style.display = 'block';
+            // Apply intelligent sizing after image loads
+            img.onload = () => this.optimizeProfileImageFit(img);
+          }
+          // Persist to localStorage with quota protection
+          if (!this.safeSetLocalStorage('profilePhoto', dataUrl)) {
+            this.showToast('Failed to save profile photo due to storage limits', 'error');
+            return;
+          }
         } catch (err) {
           console.warn('Image resize failed, falling back to direct read', err);
           const reader = new FileReader();
           reader.onload = (e) => {
             const dataUrl = e.target.result;
-            const img = document.querySelector('.avatar-image');
-            const fallback = document.querySelector('.avatar-fallback');
-            if (img) { img.src = dataUrl; img.style.display = 'block'; }
-            if (fallback) { fallback.style.display = 'none'; }
+            const img = document.querySelector('.rmu-profile-img-modern');
+            if (img) { 
+              img.src = dataUrl; 
+              img.style.display = 'block';
+              // Apply intelligent sizing after image loads
+              img.onload = () => this.optimizeProfileImageFit(img);
+            }
             try { localStorage.setItem('profilePhoto', dataUrl); } catch (err2) { console.warn('Failed to persist profile photo', err2); }
           };
           reader.readAsDataURL(f);
@@ -424,6 +538,12 @@ class PortfolioApp {
   // Helper: resize an image file to a max dimension and return a data URL
   resizeImage(file, maxDim = 800, quality = 0.8) {
     return new Promise((resolve, reject) => {
+      // Check file size before processing (prevent memory issues)
+      if (file.size > 50 * 1024 * 1024) { // 50MB limit
+        reject(new Error('File too large. Maximum file size is 50MB.'));
+        return;
+      }
+
       if (!file.type.startsWith('image/')) return reject(new Error('Not an image'));
       const img = new Image();
       const reader = new FileReader();
@@ -442,13 +562,39 @@ class PortfolioApp {
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
-            // Fill white background for JPEG
-            ctx.fillStyle = '#fff';
-            ctx.fillRect(0,0,canvas.width,canvas.height);
+            
+            // Preserve PNG transparency - only fill background for non-PNG images
+            const isPNG = file.type === 'image/png';
+            if (!isPNG) {
+              // Fill white background for JPEG and other formats
+              ctx.fillStyle = '#fff';
+              ctx.fillRect(0,0,canvas.width,canvas.height);
+            }
+            
             // Draw centered and cover-style: compute scale and offset to cover the canvas
             const sx = 0, sy = 0;
             ctx.drawImage(img, sx, sy, img.width, img.height, 0, 0, canvas.width, canvas.height);
-            const dataUrl = canvas.toDataURL('image/jpeg', quality);
+            
+            // Use appropriate format and quality based on input type
+            let dataUrl;
+            if (isPNG) {
+              // Preserve PNG format for transparency
+              dataUrl = canvas.toDataURL('image/png');
+            } else {
+              // Use JPEG for other formats
+              dataUrl = canvas.toDataURL('image/jpeg', quality);
+            }
+            
+            // Check size before resolving
+            if (dataUrl.length > 5 * 1024 * 1024) { // 5MB data URL limit
+              console.warn('Resized image still too large, applying additional compression');
+              // Try JPEG as fallback with lower quality
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(img, sx, sy, img.width, img.height, 0, 0, canvas.width, canvas.height);
+              dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+            }
+            
             resolve(dataUrl);
           } catch (err) { reject(err); }
         };
@@ -457,8 +603,124 @@ class PortfolioApp {
       };
       reader.readAsDataURL(file);
     });
+  }
 
+  // Safe localStorage setter with quota protection
+  safeSetLocalStorage(key, value) {
+    try {
+      const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
+      
+      // Check if the data would exceed reasonable localStorage limits
+      const currentUsage = this.getLocalStorageUsage();
+      const newSize = new Blob([stringValue]).size;
+      
+      if (currentUsage + newSize > 4 * 1024 * 1024) { // 4MB conservative limit
+        console.warn('localStorage quota nearly exceeded. Cleaning up old data...');
+        this.cleanupLocalStorage();
+      }
+      
+      localStorage.setItem(key, stringValue);
+      return true;
+    } catch (err) {
+      if (err.name === 'QuotaExceededError') {
+        console.error('localStorage quota exceeded. Attempting cleanup...');
+        this.cleanupLocalStorage();
+        try {
+          localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+          return true;
+        } catch (retryErr) {
+          console.error('Failed to save to localStorage even after cleanup:', retryErr);
+          this.showToast('Storage full. Some data may not be saved.', 'error');
+          return false;
+        }
+      }
+      console.error('Failed to save to localStorage:', err);
+      return false;
     }
+  }
+
+  // Get approximate localStorage usage
+  getLocalStorageUsage() {
+    let totalSize = 0;
+    for (let key in localStorage) {
+      if (localStorage.hasOwnProperty(key)) {
+        totalSize += localStorage[key].length;
+      }
+    }
+    return totalSize;
+  }
+
+  // Cleanup localStorage to free space
+  cleanupLocalStorage() {
+    try {
+      // Remove old/large items that can be regenerated
+      const keysToCheck = ['profilePhoto', 'achievements', 'reflections'];
+      
+      keysToCheck.forEach(key => {
+        const item = localStorage.getItem(key);
+        if (item && item.length > 1024 * 1024) { // Remove items larger than 1MB
+          console.warn(`Removing large localStorage item: ${key}`);
+          localStorage.removeItem(key);
+        }
+      });
+      
+      // Clean up blob URLs as well
+      this.cleanupAllAttachmentUrls();
+    } catch (err) {
+      console.error('Failed to cleanup localStorage:', err);
+    }
+  }
+
+  // Optimize profile image fit to show complete image without cropping
+  optimizeProfileImageFit(imgElement) {
+    if (!imgElement || !imgElement.naturalWidth || !imgElement.naturalHeight) return;
+    
+    try {
+      const containerColumn = imgElement.closest('.rmu-profile-column');
+      if (!containerColumn) return;
+
+      // Get container dimensions
+      const containerRect = containerColumn.getBoundingClientRect();
+      const containerWidth = containerRect.width;
+      const containerHeight = containerRect.height || window.innerHeight;
+      
+      // Get image natural dimensions
+      const imgWidth = imgElement.naturalWidth;
+      const imgHeight = imgElement.naturalHeight;
+      const imgAspectRatio = imgWidth / imgHeight;
+      const containerAspectRatio = containerWidth / containerHeight;
+
+      // Reset any previous styling
+      imgElement.style.width = '';
+      imgElement.style.height = '';
+      imgElement.style.objectFit = '';
+      imgElement.style.objectPosition = '';
+
+      if (imgAspectRatio > containerAspectRatio) {
+        // Image is wider relative to container - fit to container width, show full height
+        imgElement.style.width = '100%';
+        imgElement.style.height = 'auto';
+        imgElement.style.minHeight = '100vh';
+        imgElement.style.objectFit = 'contain';
+        imgElement.style.objectPosition = 'center center';
+      } else {
+        // Image is taller relative to container - fit to container height, show full width  
+        imgElement.style.width = '100%';
+        imgElement.style.height = '100vh';
+        imgElement.style.objectFit = 'contain';
+        imgElement.style.objectPosition = 'center center';
+      }
+
+      console.log('Profile image optimized for full display without cropping');
+    } catch (error) {
+      console.warn('Failed to optimize profile image fit:', error);
+      // Fallback to basic sizing
+      imgElement.style.width = '100%';
+      imgElement.style.minHeight = '100vh';
+      imgElement.style.objectFit = 'contain';
+      imgElement.style.objectPosition = 'center center';
+    }
+  }
 
   // Convert a data URL (base64) into a Blob
   dataURLToBlob(dataURL) {
@@ -489,6 +751,10 @@ class PortfolioApp {
   getAttachmentUrl(key, attachment) {
     if (!attachment) return null;
     if (!this._attachmentUrls) this._attachmentUrls = {};
+    
+    // Clean up previous URL for this key to prevent memory leaks
+    this.cleanupAttachmentUrl(key);
+    
     // If attachment is an object with a data property, use that
     let data = attachment && typeof attachment === 'object' && 'data' in attachment ? attachment.data : attachment;
     let filename = attachment && typeof attachment === 'object' && attachment.name ? attachment.name : null;
@@ -503,7 +769,6 @@ class PortfolioApp {
       if (s.startsWith('data:')) {
         const blob = this.dataURLToBlob(s);
         if (!blob) return null;
-        try { if (this._attachmentUrls[key]) URL.revokeObjectURL(this._attachmentUrls[key]); } catch (e) {}
         const url = URL.createObjectURL(blob);
         this._attachmentUrls[key] = url;
         return url;
@@ -515,7 +780,6 @@ class PortfolioApp {
         const dataURL = `data:${mime};base64,${s.replace(/\s+/g,'')}`;
         const blob = this.dataURLToBlob(dataURL);
         if (!blob) return null;
-        try { if (this._attachmentUrls[key]) URL.revokeObjectURL(this._attachmentUrls[key]); } catch (e) {}
         const url = URL.createObjectURL(blob);
         this._attachmentUrls[key] = url;
         return url;
@@ -526,7 +790,6 @@ class PortfolioApp {
 
     // Blob
     if (typeof Blob !== 'undefined' && data instanceof Blob) {
-      try { if (this._attachmentUrls[key]) URL.revokeObjectURL(this._attachmentUrls[key]); } catch (e) {}
       const url = URL.createObjectURL(data);
       this._attachmentUrls[key] = url;
       return url;
@@ -536,7 +799,6 @@ class PortfolioApp {
     if (data && (data instanceof ArrayBuffer || ArrayBuffer.isView(data))) {
       const buf = data instanceof ArrayBuffer ? data : data.buffer;
       const blob = new Blob([buf], { type: type || 'application/octet-stream' });
-      try { if (this._attachmentUrls[key]) URL.revokeObjectURL(this._attachmentUrls[key]); } catch (e) {}
       const url = URL.createObjectURL(blob);
       this._attachmentUrls[key] = url;
       return url;
@@ -544,6 +806,28 @@ class PortfolioApp {
 
     // Fallback: try JSON/stringify and then base64? unlikely — return null
     return null;
+  }
+
+  // Helper method to clean up individual blob URLs to prevent memory leaks
+  cleanupAttachmentUrl(key) {
+    if (this._attachmentUrls && this._attachmentUrls[key]) {
+      try {
+        URL.revokeObjectURL(this._attachmentUrls[key]);
+        delete this._attachmentUrls[key];
+      } catch (e) {
+        console.warn('Failed to cleanup attachment URL:', e);
+      }
+    }
+  }
+
+  // Method to clean up all blob URLs (call on app shutdown or major data changes)
+  cleanupAllAttachmentUrls() {
+    if (this._attachmentUrls) {
+      Object.keys(this._attachmentUrls).forEach(key => {
+        this.cleanupAttachmentUrl(key);
+      });
+      this._attachmentUrls = {};
+    }
   }
 
     // Normalize/upgrade loaded JSON data (handles legacy shapes)
@@ -557,7 +841,7 @@ class PortfolioApp {
 
         // migrate single `image` to `images` array
         if (out.image && !out.images) {
-          out.images = [{ name: out.image.name || 'image', type: out.image.type || 'image/jpeg', data: out.image.data || out.image }];
+          out.images = [{ name: out.image.name || 'image', type: out.image.type || (out.image.data && out.image.data.startsWith('data:image/png') ? 'image/png' : 'image/jpeg'), data: out.image.data || out.image }];
           delete out.image;
         }
         // ensure images is an array
@@ -596,7 +880,12 @@ class PortfolioApp {
             // Image types
             if (t.startsWith('image/') || nameLower.match(/\.(png|jpe?g|gif|webp|bmp)$/)) {
               out.images = out.images || [];
-              out.images.push({ name: attObj.name || 'image', type: attObj.type || 'image/jpeg', data: attObj.data || attObj.url || attObj });
+              // Detect PNG from filename or data URL
+              let imageType = attObj.type || 'image/jpeg';
+              if (nameLower.endsWith('.png') || (attObj.data && attObj.data.startsWith('data:image/png'))) {
+                imageType = 'image/png';
+              }
+              out.images.push({ name: attObj.name || 'image', type: imageType, data: attObj.data || attObj.url || attObj });
               return;
             }
 
@@ -941,32 +1230,61 @@ class PortfolioApp {
       const fileInput = document.getElementById(inputId);
       if (!fileInput || !fileInput.files || fileInput.files.length === 0) return null;
       const files = Array.from(fileInput.files);
+      
+      // Check total file size before processing
+      const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+      if (totalSize > 100 * 1024 * 1024) { // 100MB total limit
+        this.showToast('Total file size too large. Maximum is 100MB.', 'error');
+        return null;
+      }
+      
       // Read each file; for images use resizeImage to limit size
       const readers = files.map(async (file) => {
         try {
           if (file.type.startsWith('image/')) {
-            // Use resizeImage to produce a JPEG data URL
+            // Use resizeImage to produce a JPEG/PNG data URL with size control
             try {
               const data = await this.resizeImage(file, 800, 0.8);
               return { name: file.name, type: file.type, data };
             } catch (e) {
+              console.warn('Failed to resize image, using original:', e);
               // fallback to FileReader
               return new Promise((resolve) => {
                 const r = new FileReader();
-                r.onload = (ev) => resolve({ name: file.name, type: file.type, data: ev.target.result });
+                r.onload = (ev) => {
+                  const result = ev.target.result;
+                  // Check data URL size
+                  if (result.length > 10 * 1024 * 1024) { // 10MB limit for individual files
+                    console.warn('File too large after reading:', file.name);
+                    resolve(null);
+                  } else {
+                    resolve({ name: file.name, type: file.type, data: result });
+                  }
+                };
                 r.onerror = () => resolve(null);
                 r.readAsDataURL(file);
               });
             }
           } else {
+            // For non-images, check size limit before reading
+            if (file.size > 25 * 1024 * 1024) { // 25MB limit for PPT/PDF files
+              console.warn('Non-image file too large:', file.name);
+              this.showToast(`File "${file.name}" is too large. Maximum size for documents is 25MB.`, 'error');
+              return null;
+            }
+            
             return new Promise((resolve) => {
               const r = new FileReader();
               r.onload = (ev) => resolve({ name: file.name, type: file.type, data: ev.target.result });
-              r.onerror = () => resolve(null);
+              r.onerror = (err) => {
+                console.error('Failed to read file:', file.name, err);
+                resolve(null);
+              };
               r.readAsDataURL(file);
             });
           }
         } catch (err) { 
+          console.error('Error processing file:', file.name, err);
           return null; 
         }
       });
@@ -1660,13 +1978,16 @@ class PortfolioApp {
 
   // Export visible portfolio content to PDF using html2canvas + jsPDF
   async exportToPdf() {
+    if (this._busy) return; // prevent re-entry
+    this.showLoadingBar();
     try {
       if (typeof html2canvas === 'undefined' || (typeof window.jspdf === 'undefined' && typeof jsPDF === 'undefined')) {
         this.showToast('PDF libraries not loaded', 'error');
+        this.hideLoadingBar(false);
         return;
       }
       const JSPDF = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : (typeof jsPDF !== 'undefined' ? jsPDF : null);
-      if (!JSPDF) { this.showToast('jsPDF not available', 'error'); return; }
+      if (!JSPDF) { this.showToast('jsPDF not available', 'error'); this.hideLoadingBar(false); return; }
 
       // PDF layout parameters
       const pdf = new JSPDF('p', 'pt', 'a4');
@@ -1726,10 +2047,21 @@ class PortfolioApp {
 
       // We'll clone the live DOM sections so the PDF visually matches the website CSS
       const renderRoot = document.createElement('div');
-      renderRoot.style.position = 'fixed'; renderRoot.style.left = '-9999px'; renderRoot.style.top = '0'; renderRoot.style.zIndex = '99999'; renderRoot.style.padding = '10px';
-  // Always use desktop width for PDF export, regardless of current device/viewport
-  const widthPx = 960;
-  renderRoot.style.width = widthPx + 'px';
+      renderRoot.style.position = 'fixed'; 
+      renderRoot.style.left = '-9999px'; 
+      renderRoot.style.top = '0'; 
+      renderRoot.style.zIndex = '99999'; 
+      renderRoot.style.padding = '10px';
+      // Always use desktop width for PDF export, regardless of current device/viewport
+      const widthPx = 960;
+      renderRoot.style.width = widthPx + 'px';
+      renderRoot.style.minWidth = widthPx + 'px';
+      renderRoot.style.maxWidth = widthPx + 'px';
+      renderRoot.style.fontSize = '14px'; // Force consistent font size
+      renderRoot.style.overflow = 'visible';
+      // Force desktop media query behavior by setting a large width on the container
+      renderRoot.style.setProperty('width', widthPx + 'px', 'important');
+      renderRoot.classList.add('pdf-desktop-render'); // Add a class for targeting if needed
       document.body.appendChild(renderRoot);
 
       // Helper to clone a node and remove interactive controls that shouldn't appear in PDF
@@ -1739,6 +2071,90 @@ class PortfolioApp {
         c.querySelectorAll && c.querySelectorAll('.modal, .achievement-actions, .reflection-actions, button, input, textarea, .attach-download').forEach(n => n.remove());
         // remove any overly interactive elements that might show focus outlines
         c.querySelectorAll && c.querySelectorAll('[contenteditable]').forEach(n => n.removeAttribute('contenteditable'));
+        
+        // Force desktop layout for PDF export regardless of mobile viewport
+        const modernLayout = c.querySelector('.rmu-modern-layout');
+        if (modernLayout) {
+          modernLayout.style.display = 'grid';
+          modernLayout.style.gridTemplateColumns = '1fr 33.333%';
+          modernLayout.style.minHeight = '100vh';
+          modernLayout.style.width = '100%';
+          // Override any mobile media query effects
+          modernLayout.style.setProperty('grid-template-columns', '1fr 33.333%', 'important');
+        }
+        
+        // Ensure content area uses desktop styling
+        const contentArea = c.querySelector('.rmu-content-area');
+        if (contentArea) {
+          contentArea.style.order = '1';
+          contentArea.style.width = 'auto';
+          contentArea.style.padding = '2rem';
+        }
+        
+        // Force desktop two-column layout for fields container (override mobile single column)
+        const fieldsContainer = c.querySelector('.rmu-fields-container');
+        if (fieldsContainer) {
+          fieldsContainer.style.display = 'grid';
+          fieldsContainer.style.gridTemplateColumns = '1fr 1fr';
+          fieldsContainer.style.gap = '3rem';
+          fieldsContainer.style.padding = '1rem 0';
+          // Override mobile media query with important
+          fieldsContainer.style.setProperty('grid-template-columns', '1fr 1fr', 'important');
+          fieldsContainer.style.setProperty('gap', '3rem', 'important');
+        }
+        
+        // Ensure field columns use desktop layout
+        const fieldColumns = c.querySelectorAll('.rmu-field-column');
+        fieldColumns.forEach(column => {
+          column.style.display = 'flex';
+          column.style.flexDirection = 'column';
+          column.style.gap = '2rem';
+        });
+        
+        // Override any mobile-specific field styling
+        const rmuFields = c.querySelectorAll('.rmu-field');
+        rmuFields.forEach(field => {
+          field.style.display = 'flex';
+          field.style.flexDirection = 'column';
+          field.style.gap = '0.5rem';
+        });
+        
+        // Fix profile image styling for PDF export to prevent stretching
+        const profileImg = c.querySelector('.rmu-profile-img-modern');
+        if (profileImg && profileImg.naturalWidth && profileImg.naturalHeight) {
+          // Reset any dynamic styles that might cause stretching in PDF
+          profileImg.style.width = 'auto';
+          profileImg.style.height = 'auto';
+          profileImg.style.maxWidth = '100%';
+          profileImg.style.maxHeight = '100%';
+          profileImg.style.objectFit = 'contain';
+          profileImg.style.objectPosition = 'center center';
+          profileImg.style.minHeight = 'unset';
+          
+          // Set the profile column to have a reasonable height for PDF
+          const profileColumn = c.querySelector('.rmu-profile-column');
+          if (profileColumn) {
+            profileColumn.style.height = 'auto';
+            profileColumn.style.minHeight = '400px'; // reasonable height for PDF
+            profileColumn.style.maxHeight = '600px';
+            profileColumn.style.display = 'flex';
+            profileColumn.style.alignItems = 'center';
+            profileColumn.style.justifyContent = 'center';
+            profileColumn.style.order = '2';
+            profileColumn.style.width = 'auto'; // Let grid handle the width
+          }
+          
+          // Ensure the profile picture container maintains aspect ratio
+          const profilePicture = c.querySelector('.rmu-profile-picture-modern');
+          if (profilePicture) {
+            profilePicture.style.width = '100%';
+            profilePicture.style.height = 'auto';
+            profilePicture.style.display = 'flex';
+            profilePicture.style.alignItems = 'center';
+            profilePicture.style.justifyContent = 'center';
+          }
+        }
+        
         return c;
       };
 
@@ -1958,9 +2374,9 @@ class PortfolioApp {
         }).filter(Boolean);
 
   const nodeRect = node.getBoundingClientRect();
-  // For mobile-like rendering, apply a slightly smaller scale so entries don't appear oversized
-  const mobileDownscale = (node.dataset && node.dataset.pdfPersonal === 'true') ? 1 : 0.92; // don't downscale personal here
-  const canvas = await html2canvas(node, { scale: 2 * mobileDownscale, useCORS: true, logging: false, backgroundColor: '#ffffff' });
+  // Use consistent scaling for all content to ensure identical output from mobile and desktop
+  const pdfScale = 2.0; // Fixed scale for consistent results
+  const canvas = await html2canvas(node, { scale: pdfScale, useCORS: true, logging: false, backgroundColor: '#ffffff', width: widthPx });
         // Defensive: html2canvas may return a zero-dimension canvas for hidden/empty nodes.
         if (!canvas || !canvas.width || !canvas.height) {
           console.warn('html2canvas returned empty canvas for node, skipping:', node);
@@ -2171,14 +2587,22 @@ class PortfolioApp {
         // If we approach bottom, next loop will addPage as needed
       }
 
-      // Cleanup
-      try { document.body.removeChild(renderRoot); } catch (e) { /* ignore */ }
+      // Cleanup - remove render container and clean up memory
+      try { 
+        document.body.removeChild(renderRoot); 
+        // Force garbage collection hint by clearing large references
+        renderRoot = null;
+        // Clean up any blob URLs that may have been created
+        this.cleanupAllAttachmentUrls();
+      } catch (e) { /* ignore */ }
   const filename = `portfolio-export-${new Date().toISOString().split('T')[0]}.pdf`;
   try { pdf.save(filename); this.showToast('Exported portfolio to PDF', 'success'); } catch (e) { this.showToast('Failed to save PDF', 'error'); }
     } catch (err) {
       console.error('exportToPdf error', err);
+      this.hideLoadingBar(false);
       this.showToast('Failed to export PDF', 'error');
     }
+    this.hideLoadingBar(true);
   }
 
   formatDate(dateString) {
@@ -2230,63 +2654,140 @@ class PortfolioApp {
   loadSampleData() {
     this.achievements = [
       {
-        id: '1',
-        title: 'Anatomy Midterm Examination',
-        category: 'academic',
-        date: '2024-03-15',
-        description: 'Successfully completed the anatomy midterm examination with a score of 95%. Demonstrated comprehensive understanding of human anatomical systems.',
-        status: 'completed'
+        id: "1758332842386",
+        title: "Early Clinical Exposure",
+        category: "clinical",
+        date: "2025-09-19",
+        description: "Gained early clinical exposure by interacting with patients in a hospital setting and practicing essential skills such as blood pressure measurement and basic ECG interpretation",
+        status: "completed",
+        ppt: null,
+        pdf: null,
+        images: []
       },
       {
-        id: '2',
-        title: 'Cardiology Rotation',
-        category: 'clinical',
-        date: '2024-02-01',
-        description: 'Completed 6-week rotation in the cardiology department, observing various procedures and patient consultations.',
-        status: 'completed'
+        id: "1758459890927",
+        title: "Morphological and Topographical Analysis of Nutrient Foramina in Adult Human Tibiae from Rawalpindi Region: A Descriptive Cross-Sectional Study",
+        category: "research",
+        date: "2025-08-04",
+        description: "We, a team comprising Abdul Haseeb Ahmad (Roll No. 123), Abdul Shehroz (Roll No. 126) Muneeba Tehreem (Roll No. 118), Muqaddas Jabeen (Roll No. 120), Muntaha Khaliq (Roll No. 119), and Abdul Sattar (Roll No. 127), embarked on our very first research project as beginners in the field. While the study was simple in scope, it provided us with invaluable learning and hands-on experience that we deeply cherish.\nTo read the full article contact mbbs-52-123@rmur.edu.pk",
+        status: "completed",
+        ppt: null,
+        pdf: null,
+        images: []
       },
       {
-        id: '3',
-        title: 'Research Project on Hypertension',
-        category: 'research',
-        date: '2024-04-01',
-        description: 'Currently conducting research on the effects of lifestyle modifications on hypertension management in young adults.',
-        status: 'in-progress'
+        id: "1758605531988",
+        title: "95% + Attendance",
+        category: "academic",
+        date: "2025-09-23",
+        description: "Every day in class was a step closer to my goals — staying above 95% attendance was my way of proving discipline and determination.",
+        status: "completed",
+        ppt: null,
+        pdf: null,
+        images: []
       },
       {
-        id: '4',
-        title: 'CPR Certification',
-        category: 'certification',
-        date: '2024-01-20',
-        description: 'Obtained CPR certification from the American Heart Association, valid for 2 years.',
-        status: 'completed'
+        id: "1758605833033",
+        title: "Google Forms & MS Word Webinar",
+        category: "extracurricular",
+        date: "2025-09-23",
+        description: "Successfully completed extracurricular courses in MS Word, Google Forms, and MS PowerPoint, gaining practical skills in documentation, data collection, and professional presentations",
+        status: "completed",
+        ppt: null,
+        pdf: null,
+        images: []
+      },
+      {
+        id: "1758678162908",
+        title: "7 Basic skills learned during 1st Year Block 1.",
+        category: "clinical",
+        date: "2025-09-24",
+        description: "1: Hand Washing\n2: Wearing Gloves\n3: Providing Basic Life Support in Adults\n4: Scrubbing for Operation Theatre\n5: Motor examination of the upper limbs\n6: Sensory examination of the upper limbs\n7: Examine Joints of the Upper Limb",
+        status: "completed",
+        ppt: null,
+        pdf: null,
+        images: []
+      },
+      {
+        id: "1758678347568",
+        title: "8 amazing skills learned during 1st year Block 2",
+        category: "clinical",
+        date: "2025-09-24",
+        description: "1: Motor Examination of Lower Limbs\n2: Sensory Examination of the Lower Limbs\n3: Examine Joints of the Lower Limb\n4: Giving Injections\n5: Taking Temperature\n6: Venipuncture\n7: Giving a Blood Transfusion\n8: Examine lymph nodes.",
+        status: "completed",
+        ppt: null,
+        pdf: null,
+        images: []
+      },
+      {
+        id: "1758678600560",
+        title: "Theoretical Foundations of Health Research",
+        category: "research",
+        date: "2025-09-24",
+        description: "Gaining a deeper understanding of the research process was a key part of my academic journey. This logbook details the series of lectures I completed on the theoretical foundations of health research. The course was a fantastic opportunity to learn about research ethics, develop skills in synopsis and manuscript writing, and understand the practical steps of bringing a research project to life.",
+        status: "completed",
+        ppt: null,
+        pdf: null,
+        images: []
+      },
+      {
+        id: "1758678951372",
+        title: "Developing Professionalism and Leadership Skills",
+        category: "academic",
+        date: "2025-09-24",
+        description: "My academic journey has always been about more than just knowledge; it's also about building character. This logbook documents my engagement with the \"Professionalism\" module, which focused on accountability and professional conduct. The sessions honed my skills and understanding of professional behavior in foundational medical subjects and clinical settings.",
+        status: "completed",
+        ppt: null,
+        pdf: null,
+        images: []
       }
     ];
 
     this.reflections = [
       {
-        id: '1',
-        title: 'First Day in Cardiology',
-        date: '2024-02-01',
-        mood: 'positive',
-        content: 'Today marked the beginning of my cardiology rotation, and I couldn\'t be more excited. The attending physician was incredibly welcoming and took time to explain the different types of cases we might encounter. I observed my first echocardiogram and was amazed by the technology that allows us to see the heart in real-time. This experience reinforced my interest in cardiology as a potential specialty.',
-        linkedAchievement: '2'
+        id: "2",
+        title: "/Template/ Challenging Patient Case",
+        date: "2024-02-15",
+        mood: "challenging",
+        content: "Today I encountered a complex case involving a patient with multiple comorbidities. It was challenging to understand how all the conditions interacted with each other, and I felt overwhelmed at first. However, working through the case with the resident helped me understand the importance of taking a holistic approach to patient care. This experience taught me that medicine is not just about treating individual symptoms but understanding the patient as a whole.",
+        linkedAchievement: null,
+        images: []
       },
       {
-        id: '2',
-        title: 'Challenging Patient Case',
-        date: '2024-02-15',
-        mood: 'challenging',
-        content: 'Today I encountered a complex case involving a patient with multiple comorbidities. It was challenging to understand how all the conditions interacted with each other, and I felt overwhelmed at first. However, working through the case with the resident helped me understand the importance of taking a holistic approach to patient care. This experience taught me that medicine is not just about treating individual symptoms but understanding the patient as a whole.',
-        linkedAchievement: null
+        id: "3",
+        title: "/Template/ Research Progress Update",
+        date: "2024-03-20",
+        mood: "positive",
+        content: "Made significant progress on my hypertension research project today. Successfully recruited 25 participants and completed baseline measurements. The preliminary data is looking promising, and I'm excited to see how the intervention affects blood pressure readings over the next few months. This research is giving me valuable experience in clinical research methodology.",
+        linkedAchievement: "3",
+        images: []
       },
       {
-        id: '3',
-        title: 'Research Progress Update',
-        date: '2024-03-20',
-        mood: 'positive',
-        content: 'Made significant progress on my hypertension research project today. Successfully recruited 25 participants and completed baseline measurements. The preliminary data is looking promising, and I\'m excited to see how the intervention affects blood pressure readings over the next few months. This research is giving me valuable experience in clinical research methodology.',
-        linkedAchievement: '3'
+        id: "1758344437009",
+        title: "Dissection of Heart",
+        date: "2025-09-20",
+        mood: "positive",
+        content: "I enjoyed and learned a lot, specially while using scalper carefully and precisely. I realized that the atrial wall of real human heart is very weak that we can cut it even using a normal scissor.",
+        linkedAchievement: null,
+        images: []
+      },
+      {
+        id: "1758680340504",
+        title: "Visit to BBH: Mastering My First Clinical Skill in Administering Injections",
+        date: "2025-08-31",
+        mood: "challenging",
+        content: "As first-year MBBS students, we (me and Abdul Sattar) voluntarily stepped into the emergency department of BBH Hospital, eager to learn beyond the classroom. Amidst the overwhelming patient load, we actively assisted throughout the night and personally administered over 150 injections each. This experience not only strengthened our confidence in clinical practice but also ignited a deeper sense of responsibility and passion for serving patients in critical moments. With the guidance of our seniors, we observed essential life-saving skills such as suturing. we kept working tirelessly through the night, forgetting even to sleep.",
+        linkedAchievement: null,
+        images: []
+      },
+      {
+        id: "1758714681078",
+        title: "Only a BR Knows This Struggle – 210 Logbooks",
+        date: "2025-08-23",
+        mood: "positive",
+        content: "Today, I completed the signing of 210 books. Only a Batch Representative truly understands the weight of this responsibility. With more than 200 logbooks, each requiring signatures from different departments, the process is long, repetitive, and often overwhelming. It is not just about collecting signatures—it is about persistence, patience, and ensuring that no one is left behind. This experience reflects the hidden effort and silent responsibility carried by a BR",
+        linkedAchievement: null,
+        images: []
       }
     ];
   }
@@ -2298,6 +2799,17 @@ const app = new PortfolioApp();
 // scripts can reliably reference it as `app`. Top-level `const` does not
 // always create a `window` property in all environments, so set it here.
 window.app = app;
+
+// Clean up resources when the page is being unloaded
+window.addEventListener('beforeunload', () => {
+  try {
+    if (app && typeof app.cleanupAllAttachmentUrls === 'function') {
+      app.cleanupAllAttachmentUrls();
+    }
+  } catch (e) {
+    console.warn('Error during cleanup:', e);
+  }
+});
 
 // -----------------------------------------------------------------------------
 // GitHub / Repository JSON Auto-Loader
@@ -2359,35 +2871,54 @@ PortfolioApp.prototype.loadFromRepoIfPresent = async function() {
   }
 })();
 
-// Drive persistence methods added to app prototype
-PortfolioApp.prototype.findDriveFile = async function(filename) {
+// Drive persistence methods added to app prototype - Updated for appDataFolder security
+PortfolioApp.prototype.findDriveFileInAppData = async function(filename) {
   try {
+    // Search only in appDataFolder - each user can only access their own appData
     const res = await gapi.client.request({
       path: 'https://www.googleapis.com/drive/v3/files',
       method: 'GET',
-      params: { q: `name='${filename.replace(/'/g, "\\'")}' and trashed=false`, fields: 'files(id,name)'}
+      params: { 
+        q: `name='${filename.replace(/'/g, "\\'")}' and parents in 'appDataFolder' and trashed=false`, 
+        spaces: 'appDataFolder',
+        fields: 'files(id,name)'
+      }
     });
     return (res.result.files && res.result.files[0]) || null;
   } catch (e) {
-    console.error('findDriveFile error', e);
+    console.error('findDriveFileInAppData error', e);
     throw e;
   }
 }
 
 PortfolioApp.prototype.saveToDrive = async function() {
+  if (this._busy) return; // prevent re-entry
+  this.showLoadingBar();
   try {
     // Guard: ensure gapi and gapi.client exist to avoid ReferenceError when Drive is not initialized
     if (typeof gapi === 'undefined' || !gapi || !gapi.client) {
       this.showToast('Google API not loaded. Initialize Drive integration first.', 'error');
+      this.hideLoadingBar(false);
       return;
     }
     if (!gapi.client.getToken || !gapi.client.getToken().access_token) {
       this.showToast('Not authenticated with Drive', 'info');
+      this.hideLoadingBar(false);
       return;
     }
     const filename = 'portfolio-data.json';
-    const existing = await this.findDriveFile(filename).catch(()=>null);
-    const metadata = { name: filename, mimeType: 'application/json' };
+    const existing = await this.findDriveFileInAppData(filename).catch(()=>null);
+    
+    // Create metadata for appDataFolder - parents array ensures file is created in appDataFolder
+    const metadata = { 
+      name: filename, 
+      mimeType: 'application/json'
+    };
+    
+    // If creating a new file, specify appDataFolder as parent
+    if (!existing || !existing.id) {
+      metadata.parents = ['appDataFolder'];
+    }
   // Include personalInfo and profilePhoto (if any) from localStorage in the saved JSON
   const personalInfo = JSON.parse(localStorage.getItem('personalInfo') || '{}');
   const profilePhoto = localStorage.getItem('profilePhoto') || null;
@@ -2433,41 +2964,199 @@ PortfolioApp.prototype.saveToDrive = async function() {
   } catch (e) {
     console.error('saveToDrive error', e);
     this.showToast('Failed to save to Drive', 'error');
+    this.hideLoadingBar(false);
+    return;
   }
+  this.hideLoadingBar(true);
 }
 
 PortfolioApp.prototype.loadFromDrive = async function() {
+  if (this._busy) return; // prevent re-entry
+  this.showLoadingBar();
   try {
     // Guard: ensure gapi is available before attempting to use it
     if (typeof gapi === 'undefined' || !gapi || !gapi.client) {
       this.showToast('Google API not loaded. Initialize Drive integration first.', 'error');
+      this.hideLoadingBar(false);
       return;
     }
     const filename = 'portfolio-data.json';
-    const file = await this.findDriveFile(filename);
-    if (!file) { this.showToast('No portfolio-data.json found in Drive', 'info'); return; }
+    const file = await this.findDriveFileInAppData(filename);
+    if (!file) {
+      console.log('No portfolio data found in user\'s appDataFolder. Migration skipped (appData scope only).');
+      this.showToast('No existing portfolio found. Created a new private one (legacy migration requires manual Import).', 'info');
+      await this.createDefaultPortfolioInAppData();
+      return;
+    }
     const res = await gapi.client.request({ path: `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`, method: 'GET' });
     const data = res.result;
     if (data) {
-      const inst = (this && typeof this.renderAchievements === 'function') ? this : (window.app || this);
-      inst.achievements = data.achievements || [];
-      inst.reflections = data.reflections || [];
-      // Restore personal info and profile photo to localStorage and UI
-      try {
-        if (data.personalInfo) localStorage.setItem('personalInfo', JSON.stringify(data.personalInfo));
-        if (data.profilePhoto) localStorage.setItem('profilePhoto', data.profilePhoto);
-      } catch (e) { console.warn('Failed to persist personal info from Drive', e); }
-      if (typeof inst.loadPersonalInfo === 'function') inst.loadPersonalInfo();
-      if (typeof inst.renderAchievements === 'function') inst.renderAchievements();
-      if (typeof inst.renderReflections === 'function') inst.renderReflections();
-      if (typeof inst.updateLinkedAchievements === 'function') inst.updateLinkedAchievements();
-      if (typeof inst.showToast === 'function') inst.showToast('Loaded portfolio from Google Drive', 'success');
+      this.processLoadedPortfolioData(data);
     } else {
       this.showToast('Failed to load portfolio data', 'error');
     }
   } catch (e) {
     console.error('loadFromDrive error', e);
     this.showToast('Failed to load from Drive', 'error');
+    this.hideLoadingBar(false);
+    return;
+  }
+  this.hideLoadingBar(true);
+}
+
+// Export current in-memory + local personal info/profile photo JSON as a downloadable file
+PortfolioApp.prototype.exportPortfolioJson = function() {
+  try {
+    const personalInfo = JSON.parse(localStorage.getItem('personalInfo') || '{}');
+    const profilePhoto = localStorage.getItem('profilePhoto') || null;
+    const data = { achievements: this.achievements || [], reflections: this.reflections || [], personalInfo, profilePhoto };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'portfolio-data.json';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    this.showToast('Downloaded portfolio-data.json', 'success');
+  } catch (e) {
+    console.error('exportPortfolioJson error', e);
+    this.showToast('Failed to export JSON', 'error');
+  }
+};
+
+// Handle user-selected JSON file import (manual legacy migration or external backup)
+PortfolioApp.prototype.handleImportJsonFile = function(file) {
+  if (!file) return;
+  if (this._busy) return; // prevent re-entry
+  if (!/\.json$/i.test(file.name)) {
+    this.showToast('Please select a .json file', 'error');
+    return;
+  }
+  this.showLoadingBar();
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const text = e.target.result;
+      const data = JSON.parse(text);
+      if (typeof data !== 'object') throw new Error('Invalid JSON structure');
+      this.processLoadedPortfolioData(data);
+      // After loading into memory, immediately persist to Drive (creates file if needed)
+      await this.saveToDrive();
+      this.showToast('Imported JSON and saved to your private Drive space', 'success');
+      this.hideLoadingBar(true);
+    } catch (err) {
+      console.error('Import JSON failed', err);
+      this.showToast('Failed to import JSON: ' + (err && err.message ? err.message : 'Unknown error'), 'error');
+      this.hideLoadingBar(false);
+    }
+  };
+  reader.onerror = () => {
+    this.showToast('Failed to read selected file', 'error');
+    this.hideLoadingBar(false);
+  };
+  reader.readAsText(file);
+};
+
+// Self-test: verify save -> load roundtrip & report timings
+PortfolioApp.prototype.runDriveSelfTest = async function() {
+  if (typeof gapi === 'undefined' || !gapi || !gapi.client || !gapi.client.getToken || !gapi.client.getToken().access_token) {
+    this.showToast('Sign in first to run Drive test', 'info');
+    return;
+  }
+  try {
+    if (this._busy) return; // prevent re-entry
+    this.showLoadingBar();
+    const start = performance.now();
+    await this.saveToDrive();
+    const mid = performance.now();
+    await this.loadFromDrive();
+    const end = performance.now();
+    const saveMs = Math.round(mid - start);
+    const loadMs = Math.round(end - mid);
+    this.showToast(`Drive self-test passed (save ${saveMs}ms, load ${loadMs}ms)`, 'success');
+    this.hideLoadingBar(true);
+  } catch (e) {
+    console.error('Drive self-test failed', e);
+    this.showToast('Drive self-test failed: ' + (e && e.message ? e.message : 'Unknown error'), 'error');
+    this.hideLoadingBar(false);
+  }
+};
+
+// Helper function to process loaded portfolio data
+PortfolioApp.prototype.processLoadedPortfolioData = function(data) {
+  try {
+    const inst = (this && typeof this.renderAchievements === 'function') ? this : (window.app || this);
+    inst.achievements = data.achievements || [];
+    inst.reflections = data.reflections || [];
+    
+    // Restore personal info and profile photo to localStorage and UI
+    if (data.personalInfo && !this.safeSetLocalStorage('personalInfo', data.personalInfo)) {
+      console.warn('Failed to restore personal info from Drive due to storage limits');
+    }
+    if (data.profilePhoto && !this.safeSetLocalStorage('profilePhoto', data.profilePhoto)) {
+      console.warn('Failed to restore profile photo from Drive due to storage limits');
+    }
+    
+    if (typeof inst.loadPersonalInfo === 'function') inst.loadPersonalInfo();
+    if (typeof inst.renderAchievements === 'function') inst.renderAchievements();
+    if (typeof inst.renderReflections === 'function') inst.renderReflections();
+    if (typeof inst.updateLinkedAchievements === 'function') inst.updateLinkedAchievements();
+    if (typeof inst.showToast === 'function') inst.showToast('Loaded portfolio from Google Drive', 'success');
+  } catch (e) {
+    console.error('Error processing loaded portfolio data:', e);
+    this.showToast('Error processing portfolio data', 'error');
+  }
+}
+
+// Create default portfolio file in appDataFolder for new users
+PortfolioApp.prototype.createDefaultPortfolioInAppData = async function() {
+  try {
+    const filename = 'portfolio-data.json';
+    
+    // Get current localStorage data to preserve any existing work
+    const personalInfo = JSON.parse(localStorage.getItem('personalInfo') || '{}');
+    const profilePhoto = localStorage.getItem('profilePhoto') || null;
+    
+    // Create default data structure with any existing achievements/reflections
+    const defaultData = {
+      achievements: this.achievements || [],
+      reflections: this.reflections || [],
+      personalInfo: personalInfo,
+      profilePhoto: profilePhoto
+    };
+    
+    const content = JSON.stringify(defaultData, null, 2);
+    
+    const metadata = { 
+      name: filename, 
+      mimeType: 'application/json',
+      parents: ['appDataFolder'] // Ensure file is created in appDataFolder
+    };
+
+    const boundary = '-------314159265358979323846';
+    const delimiter = "\r\n--" + boundary + "\r\n";
+    const close_delim = "\r\n--" + boundary + "--";
+
+    const multipartRequestBody =
+      delimiter +
+      'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+      JSON.stringify(metadata) +
+      delimiter +
+      'Content-Type: application/json\r\n\r\n' +
+      content +
+      close_delim;
+
+    await gapi.client.request({
+      path: 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+      method: 'POST',
+      headers: { 'Content-Type': 'multipart/related; boundary="' + boundary + '"' },
+      body: multipartRequestBody
+    });
+    
+    console.log('Created default portfolio file in appDataFolder');
+  } catch (e) {
+    console.error('Failed to create default portfolio file:', e);
+    throw e;
   }
 }
 
@@ -2641,13 +3330,12 @@ PortfolioApp.prototype._openOfficeHelperTab = function(publicUrl, filename) {
 PortfolioApp.prototype._escapeHtml = function(s) { if (!s) return ''; return String(s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[c]; }); };
 
 // -----------------------------------------------------------------------------
-// Drive Auto-Loader (monitor)
+// Drive Auto-Loader (monitor) - Updated for appDataFolder
 // -----------------------------------------------------------------------------
 // When a Drive access token becomes available (user signs in via GIS),
-// automatically load `portfolio-data.json` from Drive and apply it to the
-// current session. This does not rename or change any Drive files; it only
-// reads and applies the content so signed-in users see their Drive-saved
-// portfolio immediately.
+// automatically load `portfolio-data.json` from the user's private appDataFolder
+// and apply it to the current session. Each user can only access their own 
+// appDataFolder, ensuring complete data isolation between users.
 // -----------------------------------------------------------------------------
 
 ;(function setupDriveAutoLoad() {
@@ -2659,7 +3347,7 @@ PortfolioApp.prototype._escapeHtml = function(s) { if (!s) return ''; return Str
   }
 
   // Poll for token for a short period after page load/sign-in events.
-  // If detected, call app.loadFromDrive().
+  // If detected, call app.loadFromDrive() to load from user's private appDataFolder.
   let polled = false;
   function pollTokenAndLoad() {
     if (polled) return;
@@ -2671,7 +3359,7 @@ PortfolioApp.prototype._escapeHtml = function(s) { if (!s) return ''; return Str
       if (hasDriveToken()) {
         clearInterval(timer);
         try {
-          console.log('Drive token detected — auto-loading portfolio from Drive.');
+          console.log('Drive token detected — auto-loading user portfolio from secure appDataFolder.');
           await window.app.loadFromDrive();
         } catch (e) {
           console.warn('Drive auto-load failed', e);
@@ -2698,8 +3386,8 @@ PortfolioApp.prototype._escapeHtml = function(s) { if (!s) return ''; return Str
 // uploads can use gapi.client.getToken() and related helpers. If your page already
 // sets up Google Sign-In, this will be a no-op.
 PortfolioApp.prototype.initGoogleDriveClient = function() {
-  // Required scopes for Drive upload and permission modification
-  const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.photos.readonly';
+  // Required scope for Drive appDataFolder access - each user can only access their own appData
+  const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
   // Use global keys if provided by the page (optional)
   const CLIENT_ID = window.GOOGLE_CLIENT_ID || null;
   const API_KEY = window.GOOGLE_API_KEY || null;
