@@ -67,6 +67,11 @@
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  line-height: 1.6;
+  font-size: 14px;
+}
+
 /* Truncate long labels in pills and show ellipsis */
 .category-bar-wrapper .descriptive-category span {
   display: inline-block;
@@ -75,11 +80,6 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: middle;
-}
-
-  color: hsl(var(--foreground));
-  line-height: 1.6;
-  font-size: 14px;
 }
 
 .container {
@@ -1332,25 +1332,23 @@ body {
     overflow: hidden;
 }
 
-/* Header Section */
-.rmu-header {
+/* Modern 3-Column Layout */
+.rmu-modern-layout {
     position: relative;
-    background: linear-gradient(to right, hsl(var(--background)), hsl(210, 15%, 90%, 0.3));
-    padding: 2rem;
-    border-bottom: 2px solid hsl(45, 65%, 60%);
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 2rem;
+    display: grid;
+    grid-template-columns: 1fr 33.333%;
+    min-height: 100vh;
+    background: hsl(var(--background));
 }
 
+/* Edit Controls */
 .rmu-edit-controls {
     position: absolute;
     top: 1rem;
     right: 1rem;
     display: flex;
     gap: 0.5rem;
-    z-index: 10;
+    z-index: 20;
 }
 
 .rmu-edit-button, .rmu-save-button, .rmu-cancel-button {
@@ -1390,10 +1388,57 @@ body {
     background-color: hsl(0, 84%, 55%);
 }
 
-.rmu-change-photo-btn {
-    margin-top: 0.5rem;
-    padding: 0.375rem 0.75rem;
-    font-size: 0.8125rem;
+/* Profile Picture Column (Right) */
+.rmu-profile-column {
+    background: hsl(var(--background));
+    padding: 0; /* Remove padding for seamless edges */
+    display: flex;
+    align-items: stretch; /* Stretch to full height */
+    justify-content: center;
+    position: relative;
+    order: 2;
+    overflow: hidden; /* Hide any overflow */
+}
+
+.rmu-profile-picture-modern {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    min-height: 100vh; /* Ensure full viewport height */
+}
+
+.rmu-profile-img-modern {
+    width: 100%;
+    min-height: 100vh; /* Full viewport height */
+    object-fit: contain; /* Show complete image without cropping */
+    object-position: center center; /* Center the image */
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    background: transparent; /* Preserve PNG transparency */
+    /* Remove mix-blend-mode to avoid transparency issues */
+    display: block;
+}
+
+/* Alternative sizing for images that need to fit width-first */
+.rmu-profile-img-modern.fit-width {
+    height: auto;
+    min-height: 100vh;
+    object-fit: cover;
+    object-position: center top;
+}
+
+.rmu-change-photo-btn-modern {
+    position: absolute;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.4rem 0.8rem;
+    font-size: 0.75rem;
     background: hsl(var(--primary));
     color: hsl(var(--primary-foreground));
     border: 1px solid hsl(var(--primary));
@@ -1403,133 +1448,104 @@ body {
     display: flex;
     align-items: center;
     gap: 0.25rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(4px);
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    z-index: 10;
 }
 
-.rmu-change-photo-btn:hover {
-    background: hsl(var(--primary) / 0.9);
+.rmu-change-photo-btn-modern:hover {
+    background: rgba(0, 0, 0, 0.8);
+    transform: translateX(-50%) translateY(-2px);
+    box-shadow: 0 8px 25px -3px rgba(0, 0, 0, 0.15);
 }
 
-.rmu-change-photo-btn .icon {
-    width: 0.875rem;
-    height: 0.875rem;
+.rmu-change-photo-btn-modern .icon {
+    width: 0.75rem;
+    height: 0.75rem;
 }
 
-.rmu-logo {
+/* Main Content Area (Left 2 Columns) */
+.rmu-content-area {
+    padding: 2rem 2rem 2rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    order: 1;
+}
+
+/* Header Section with Logo and Title */
+.rmu-header-modern {
+    padding-bottom: 2rem;
+    border-bottom: 2px solid hsl(45, 65%, 60%);
+}
+
+.rmu-logo-section {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.rmu-logo-modern {
+    width: 5rem;
+    height: 5rem;
+    object-fit: contain;
     flex-shrink: 0;
 }
 
-.rmu-logo img {
-    width: 6rem;
-    height: 6rem;
-    object-fit: contain;
-}
-
-.rmu-title-section {
+.rmu-title-modern {
     flex: 1;
-    text-align: center;
-    padding: 0 2rem;
 }
 
 .rmu-portfolio-title {
     font-family: 'Times New Roman', serif;
-    font-size: 2.5rem;
-    font-weight: 600;
+    font-size: 2.25rem;
+    font-weight: 700;
     color: hsl(0, 60%, 35%);
-    line-height: 1.2;
-    font-weight: bold;
+    line-height: 1.1;
+    margin: 0;
 }
 
-.rmu-profile-picture {
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-}
-
-.rmu-profile-img {
-    width: 8rem;
-    height: 8rem;
-    border: 4px solid hsl(45, 65%, 60%);
-    border-radius: 0.5rem;
-    overflow: hidden;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-}
-
-.rmu-profile-img img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center center;
-}
-
-/* University Section */
-.rmu-university-section {
-    background-color: hsl(0, 60%, 35%, 0.05);
-    padding: 1.5rem;
-    border-bottom: 1px solid hsl(var(--border));
-    text-align: center;
-}
-
-.rmu-university-name {
-    font-size: 1.125rem;
-    font-weight: bold;
-    color: hsl(0, 60%, 35%);
-    text-transform: uppercase;
-    letter-spacing: 0.025em;
-}
-
-/* Main Content */
-.rmu-main-content {
-    padding: 2rem;
+/* Personal Information Fields Container - Now using 2 columns for content */
+.rmu-fields-container {
     display: grid;
     grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    padding: 1rem 0;
+}
+
+.rmu-field-column {
+    display: flex;
+    flex-direction: column;
     gap: 2rem;
-}
-
-.rmu-column {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-}
-
-.rmu-field-group {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-.rmu-field-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
 }
 
 .rmu-field {
     display: flex;
     flex-direction: column;
+    gap: 0.5rem;
 }
 
 .rmu-field-label {
-    display: block;
     font-size: 0.875rem;
     font-weight: 600;
     color: hsl(var(--muted-foreground));
-    margin-bottom: 0.25rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
 }
 
 .rmu-editable-field {
     border: 1px solid transparent;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-    background: transparent;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    background: hsl(var(--background));
     transition: all 0.2s ease;
-    min-height: 1.5em;
-    display: inline-block;
-    min-width: 200px;
-    outline: none;
+    min-height: 2.5rem;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 }
 
 .rmu-editable-field.cursor-pointer {
@@ -1539,13 +1555,14 @@ body {
 .rmu-editable-field:hover {
     border-color: hsl(45, 65%, 60%);
     background: hsl(45, 65%, 60%, 0.05);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 .rmu-editable-field:focus {
     outline: none;
     border-color: hsl(0, 60%, 35%);
     background: hsl(0, 60%, 35%, 0.02);
-    box-shadow: 0 0 0 2px hsl(0, 60%, 35%, 0.1);
+    box-shadow: 0 0 0 3px hsl(0, 60%, 35%, 0.1);
 }
 
 .rmu-editable-field input,
@@ -1562,30 +1579,27 @@ body {
 
 .rmu-student-name {
     font-size: 1.25rem;
-    font-weight: 500;
+    font-weight: 600;
     color: hsl(var(--foreground));
-    font-weight: bold;
 }
 
 .rmu-detail-text {
     font-size: 1.125rem;
     font-weight: 500;
     color: hsl(var(--foreground));
-    font-weight: bold;
 }
 
 .rmu-small-detail-text {
     font-size: 1rem;
     font-weight: 500;
     color: hsl(var(--foreground));
-    font-weight: bold;
 }
 
-/* Professional Bio Section */
-.rmu-bio-section {
-    padding: 2rem;
+/* Professional Bio Section (Modern) */
+.rmu-bio-section-modern {
+    margin-top: 1.5rem;
+    padding: 2rem 0;
     border-top: 1px solid hsl(var(--border));
-    background-color: hsl(210, 15%, 90%, 0.2);
 }
 
 .rmu-bio-title {
@@ -1598,23 +1612,135 @@ body {
 }
 
 .rmu-bio-content {
-    font-size: 0.95rem;
+    font-size: 1rem;
     line-height: 1.6;
     color: hsl(var(--muted-foreground));
-    font-weight: medium;
+    min-height: 4rem;
+    padding: 1rem;
+    border-radius: 0.375rem;
+    background: hsl(var(--background));
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 }
 
 .rmu-bio-content.multiline {
-    min-height: 4rem;
     resize: vertical;
 }
 
-/* CMS Section */
+/* Footer */
+.rmu-footer {
+    height: 0.75rem;
+    background: linear-gradient(to right, hsl(0, 60%, 35%), hsl(45, 65%, 60%), hsl(0, 60%, 35%));
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .rmu-modern-layout {
+        grid-template-columns: 1fr;
+        min-height: auto;
+    }
+    
+    .rmu-profile-column {
+        order: 1;
+        height: 50vh; /* Fixed height on tablet */
+        min-height: 50vh;
+        padding: 0;
+    }
+    
+    .rmu-profile-picture-modern {
+        min-height: 50vh;
+    }
+    
+    .rmu-profile-img-modern {
+        min-height: 50vh !important;
+        height: 50vh !important;
+    }
+    
+    .rmu-content-area {
+        order: 2;
+        padding: 1.5rem;
+    }
+    
+    .rmu-fields-container {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .rmu-logo-section {
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem;
+    }
+    
+    .rmu-portfolio-title {
+        font-size: 1.8rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .rmu-profile-column {
+        height: 40vh;
+        min-height: 40vh;
+    }
+    
+    .rmu-profile-picture-modern {
+        min-height: 40vh;
+    }
+    
+    .rmu-profile-img-modern {
+        min-height: 40vh !important;
+        height: 40vh !important;
+    }
+    
+    .rmu-content-area {
+        padding: 1rem;
+    }
+    
+    .rmu-logo-modern {
+        width: 4rem;
+        height: 4rem;
+    }
+    
+    .rmu-portfolio-title {
+        font-size: 1.5rem;
+    }
+    
+    .rmu-field-column {
+        gap: 1.5rem;
+    }
+    
+    .rmu-change-photo-btn-modern {
+        bottom: 0.5rem;
+        padding: 0.3rem 0.6rem;
+        font-size: 0.7rem;
+    }
+}
+
+.rmu-field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+/* Legacy styles - kept for backward compatibility if needed */
+.rmu-field {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Professional Bio Section (Legacy - keeping for compatibility) */
+.rmu-bio-section {
+    padding: 2rem;
+    border-top: 1px solid hsl(var(--border));
+    background-color: hsl(210, 15%, 90%, 0.2);
+}
+
+/* CMS Section (Removed from layout but keeping styles for reference) */
 .rmu-cms-section {
     padding: 1.5rem;
     background-color: hsl(45, 65%, 60%, 0.1);
     border-top: 1px solid hsl(45, 65%, 60%, 0.3);
     text-align: center;
+    display: none; /* Hidden as requested */
 }
 
 .rmu-cms-link {
@@ -1676,4 +1802,99 @@ body {
     .rmu-portfolio-title {
         font-size: 2rem;
     }
+}
+
+/* ===================================================================
+   PDF DESKTOP RENDER OVERRIDES
+   Force desktop layout for PDF export containers regardless of viewport
+   ================================================================== */
+.pdf-desktop-render .rmu-modern-layout {
+    display: grid !important;
+    grid-template-columns: 1fr 33.333% !important;
+    min-height: 100vh !important;
+}
+
+.pdf-desktop-render .rmu-fields-container {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 3rem !important;
+    padding: 1rem 0 !important;
+}
+
+.pdf-desktop-render .rmu-content-area {
+    order: 1 !important;
+    padding: 2rem !important;
+}
+
+.pdf-desktop-render .rmu-profile-column {
+    order: 2 !important;
+    height: auto !important;
+    min-height: 400px !important;
+    max-height: 600px !important;
+}
+
+.pdf-desktop-render .rmu-logo-section {
+    display: flex !important;
+    align-items: center !important;
+    gap: 1.5rem !important;
+    flex-direction: row !important;
+    text-align: left !important;
+}
+
+.pdf-desktop-render .rmu-portfolio-title {
+    font-size: 2.25rem !important;
+}
+
+/* =============================
+   Global Loading Bar (Fancy RMU Style)
+   ============================= */
+#global-loading-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(to right, rgba(139,69,19,0.08), rgba(178,34,34,0.08));
+  z-index: 10000;
+  display: none;
+  overflow: hidden;
+  box-shadow: 0 2px 4px -1px rgba(0,0,0,0.15), 0 1px 3px rgba(139,69,19,0.25);
+  backdrop-filter: blur(3px) saturate(140%);
+}
+#global-loading-bar .glb-progress {
+  height: 100%;
+  width: 0%;
+  background-image: linear-gradient(90deg,#7d1b1b,#b22222,#d97706,#b22222,#7d1b1b);
+  background-size: 300% 100%;
+  animation: glb-flow 1.35s linear infinite, glb-pulse 3.2s ease-in-out infinite;
+  position: relative;
+}
+#global-loading-bar .glb-progress:before,
+#global-loading-bar .glb-progress:after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 120px;
+  background: linear-gradient( to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.35) 50%, rgba(255,255,255,0) 100% );
+  transform: skewX(-25deg);
+  filter: blur(2px);
+  opacity: 0.55;
+  animation: glb-sheen 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+#global-loading-bar .glb-progress:after {
+  animation-delay: 1.2s;
+}
+@keyframes glb-flow { 0% { background-position:0 0;} 100% { background-position:300% 0;} }
+@keyframes glb-sheen { 0% { left:-150px; } 60% { left:110%; } 100% { left:110%; } }
+@keyframes glb-pulse { 0%,100% { filter:brightness(1); } 50% { filter:brightness(1.18); } }
+#global-loading-bar.fade-out { transition: opacity .38s ease; opacity:0; }
+@media (max-width: 640px) {
+  #global-loading-bar { height:5px; box-shadow: 0 2px 6px -1px rgba(0,0,0,0.25); }
+}
+button.busy-disabled {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  filter: grayscale(.35) contrast(0.9);
+  transition: opacity .25s ease;
 }
