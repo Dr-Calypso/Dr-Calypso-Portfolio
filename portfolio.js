@@ -2046,7 +2046,8 @@ class PortfolioApp {
       };
 
       // We'll clone the live DOM sections so the PDF visually matches the website CSS
-      const renderRoot = document.createElement('div');
+  // Use let (not const) so we can optionally null it later without errors
+  let renderRoot = document.createElement('div');
       renderRoot.style.position = 'fixed'; 
       renderRoot.style.left = '-9999px'; 
       renderRoot.style.top = '0'; 
@@ -2588,15 +2589,32 @@ class PortfolioApp {
       }
 
       // Cleanup - remove render container and clean up memory
-      try { 
-        document.body.removeChild(renderRoot); 
-        // Force garbage collection hint by clearing large references
-        renderRoot = null;
+      try {
+        if (renderRoot && renderRoot.parentNode) {
+          document.body.removeChild(renderRoot);
+        }
         // Clean up any blob URLs that may have been created
         this.cleanupAllAttachmentUrls();
+        // Null reference (optional) for GC hint
+        renderRoot = null;
       } catch (e) { /* ignore */ }
-  const filename = `portfolio-export-${new Date().toISOString().split('T')[0]}.pdf`;
-  try { pdf.save(filename); this.showToast('Exported portfolio to PDF', 'success'); } catch (e) { this.showToast('Failed to save PDF', 'error'); }
+  // Dynamic PDF filename using same logic as JSON export (title -> sanitized)
+  try {
+    let personalInfo = {};
+    try { personalInfo = JSON.parse(localStorage.getItem('personalInfo') || '{}'); } catch(_){}
+    let base = (personalInfo && personalInfo.title) || (document.getElementById('title-display')?.textContent) || 'portfolio-export';
+    base = String(base || '')
+      .replace(/["'“”‘’]+/g, '')        // remove quotes/apostrophes
+      .replace(/[^A-Za-z0-9]+/g, '-')    // non-alphanumerics -> dashes
+      .replace(/^-+|-+$/g, '')           // trim leading/trailing dashes
+      .toLowerCase();
+    if (!base) base = 'portfolio-export';
+    if (base.length > 80) base = base.slice(0,80);
+    const datePart = new Date().toISOString().split('T')[0];
+    const filename = `${base}-${datePart}.pdf`;
+    pdf.save(filename);
+    this.showToast(`Exported ${filename}`, 'success');
+  } catch (e) { this.showToast('Failed to save PDF', 'error'); }
     } catch (err) {
       console.error('exportToPdf error', err);
       this.hideLoadingBar(false);
@@ -3005,19 +3023,41 @@ PortfolioApp.prototype.loadFromDrive = async function() {
 }
 
 // Export current in-memory + local personal info/profile photo JSON as a downloadable file
-PortfolioApp.prototype.exportPortfolioJson = function() {
+PortfolioApp.prototype.exportPortfolioJson = function(customName) {
   try {
     const personalInfo = JSON.parse(localStorage.getItem('personalInfo') || '{}');
     const profilePhoto = localStorage.getItem('profilePhoto') || null;
     const data = { achievements: this.achievements || [], reflections: this.reflections || [], personalInfo, profilePhoto };
+
+    // Determine base name: precedence -> explicit param -> personalInfo.title -> DOM title-display -> fallback
+    let base = (customName && String(customName).trim()) ||
+               (personalInfo && personalInfo.title) ||
+               (document.getElementById('title-display')?.textContent) ||
+               'portfolio-data';
+
+    // Sanitize for filename: remove apostrophes/quotes, replace non-alphanumerics with dashes, collapse dashes
+    base = base.replace(/["'“”‘’]+/g, '')
+               .replace(/[^A-Za-z0-9]+/g, '-')
+               .replace(/^-+|-+$/g, '')
+               .toLowerCase();
+    if (!base) base = 'portfolio-data';
+    // Limit length to avoid OS path issues
+    if (base.length > 80) base = base.slice(0,80);
+
+    const filename = base + '.json';
+
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'portfolio-data.json';
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-    this.showToast('Downloaded portfolio-data.json', 'success');
+    this.showToast(`Downloaded ${filename}`, 'success');
+
+    // NOTE: The repository auto-loader currently only fetches 'portfolio-data.json'.
+    // If you intend to place this exported file in the repo for auto-loading, rename it
+    // back to 'portfolio-data.json' (or adjust loadFromRepoIfPresent to use your pattern).
   } catch (e) {
     console.error('exportPortfolioJson error', e);
     this.showToast('Failed to export JSON', 'error');
@@ -3043,6 +3083,19 @@ PortfolioApp.prototype.handleImportJsonFile = function(file) {
       // After loading into memory, immediately persist to Drive (creates file if needed)
       await this.saveToDrive();
       this.showToast('Imported JSON and saved to your private Drive space', 'success');
+      // If the imported filename is NOT the canonical one expected by the site loader
+      // (which looks specifically for portfolio-data.json in the repo), automatically
+      // offer the correctly named file so the user can upload it without manual renaming.
+      try {
+        const importedNameLower = (file.name || '').toLowerCase();
+        if (importedNameLower !== 'portfolio-data.json') {
+          // Slight delay so the prior toast isn't overwritten instantly
+          setTimeout(()=>{
+            this.exportPortfolioJson('portfolio-data');
+            this.showToast('Provided canonical portfolio-data.json for repository upload', 'info');
+          }, 600);
+        }
+      } catch (canonErr) { /* non-fatal */ }
       this.hideLoadingBar(true);
     } catch (err) {
       console.error('Import JSON failed', err);
